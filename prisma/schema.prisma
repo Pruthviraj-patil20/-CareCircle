@@ -20,6 +20,54 @@ model User {
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  families      FamilyMember[]
+}
+
+enum FamilyRole {
+  OWNER
+  ADMIN
+  MEMBER
+  CAREGIVER
+}
+
+model Family {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  
+  members     FamilyMember[]
+  invitations FamilyInvitation[]
+}
+
+model FamilyMember {
+  id        String     @id @default(cuid())
+  familyId  String
+  userId    String
+  role      FamilyRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+}
+
+model FamilyInvitation {
+  id        String     @id @default(cuid())
+  familyId  String
+  email     String
+  role      FamilyRole @default(MEMBER)
+  token     String     @unique
+  expires   DateTime
+  createdAt DateTime   @default(now())
+  
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, email])
 }
 
 enum UserRole {

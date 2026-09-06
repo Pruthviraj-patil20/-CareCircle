@@ -9,6 +9,8 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Family } from "@prisma/client"
+import { FamilySwitcher } from "../family/family-switcher"
 
 const sidebarItems = [
   { name: "Home", href: "/dashboard", icon: Home },
@@ -23,7 +25,13 @@ const sidebarItems = [
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
 
-export function Sidebar() {
+export function Sidebar({ 
+  families, 
+  activeFamilyId 
+}: { 
+  families?: { family: Pick<Family, "id" | "name"> }[], 
+  activeFamilyId?: string 
+}) {
   const pathname = usePathname()
 
   return (
@@ -34,6 +42,13 @@ export function Sidebar() {
           <span className="font-bold text-lg tracking-tight">CareCircle</span>
         </Link>
       </div>
+      
+      {families && (
+        <div className="px-4 py-4 border-b border-border/40">
+          <FamilySwitcher families={families} activeFamilyId={activeFamilyId} />
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto py-4">
         <nav className="grid gap-1 px-4">
           {sidebarItems.map((item) => {
