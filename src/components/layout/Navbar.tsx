@@ -3,8 +3,11 @@ import { ShieldAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { auth } from "@/lib/auth"
 
-export function Navbar() {
+export async function Navbar() {
+  const session = await auth();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
@@ -21,9 +24,15 @@ export function Navbar() {
         </nav>
         <div className="flex items-center space-x-4">
           <ThemeToggle />
-          <Link href="/dashboard">
-            <Button className="rounded-full px-6">Go to Dashboard</Button>
-          </Link>
+          {session ? (
+            <Link href="/dashboard">
+              <Button className="rounded-full px-6">Go to Dashboard</Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button className="rounded-full px-6">Sign in</Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>

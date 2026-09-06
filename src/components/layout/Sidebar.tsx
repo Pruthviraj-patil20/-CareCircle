@@ -56,6 +56,17 @@ export function Sidebar() {
           })}
         </nav>
       </div>
+      <div className="p-4 mt-auto border-t border-border/40">
+        <button
+          onClick={() => {
+            import("@/actions/auth").then((m) => m.logoutAction());
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Settings className="h-4 w-4" />
+          Logout
+        </button>
+      </div>
     </div>
   )
 }
