@@ -22,11 +22,6 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   families      FamilyMember[]
-  assignedTasks Task[]        @relation("TaskAssignee")
-  createdTasks  Task[]        @relation("TaskCreator")
-  createdEvents Event[]       @relation("EventCreator")
-  announcements Announcement[] @relation("AnnouncementCreator")
-  activityLogs  ActivityLog[]
 }
 
 enum FamilyRole {
@@ -45,10 +40,6 @@ model Family {
   
   members     FamilyMember[]
   invitations FamilyInvitation[]
-  tasks       Task[]
-  events      Event[]
-  announcements Announcement[]
-  activityLogs ActivityLog[]
 }
 
 model FamilyMember {
@@ -77,84 +68,6 @@ model FamilyInvitation {
   family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
 
   @@unique([familyId, email])
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-}
-
-enum TaskPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-model Task {
-  id          String        @id @default(cuid())
-  familyId    String
-  title       String
-  description String?
-  status      TaskStatus    @default(TODO)
-  priority    TaskPriority  @default(MEDIUM)
-  dueDate     DateTime?
-  assigneeId  String?
-  createdById String
-
-  family      Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdBy   User          @relation("TaskCreator", fields: [createdById], references: [id])
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model Event {
-  id          String    @id @default(cuid())
-  familyId    String
-  title       String
-  description String?
-  startTime   DateTime
-  endTime     DateTime?
-  location    String?
-  createdById String
-
-  family      Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation("EventCreator", fields: [createdById], references: [id])
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model Announcement {
-  id          String    @id @default(cuid())
-  familyId    String
-  title       String
-  content     String
-  isPinned    Boolean   @default(false)
-  createdById String
-
-  family      Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation("AnnouncementCreator", fields: [createdById], references: [id])
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model ActivityLog {
-  id         String   @id @default(cuid())
-  familyId   String
-  userId     String
-  action     String
-  entityType String
-  entityName String
-
-  family     Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt  DateTime @default(now())
 }
 
 enum UserRole {
