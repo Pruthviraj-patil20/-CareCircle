@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import prisma from "@/lib/db";
 import { sendEmail } from "@/lib/resend";
-import { NotificationType } from "@prisma/client";
+// Removed NotificationType import to bypass IDE cache issues
 
 export const dispatchNotification = inngest.createFunction(
   { id: "dispatch-notification", name: "Dispatch Notification", triggers: [{ event: "notification/dispatch" }] },
@@ -54,7 +54,7 @@ export const dispatchNotification = inngest.createFunction(
             userId,
             title,
             message,
-            type: type as NotificationType,
+            type: type as any,
             link,
             metadata: metadata || {},
           },
