@@ -34,6 +34,11 @@ model User {
   notificationPref  NotificationPreference?
   documentsCreated    Document[]           @relation("documentsCreated")
   documentPermissions DocumentPermission[]
+  announcementsCreated          Announcement[]          @relation("announcementsCreated")
+  announcementComments          AnnouncementComment[]
+  announcementReads             AnnouncementRead[]
+  emergencyContactsCreated      EmergencyContact[]      @relation("emergencyContactsCreated")
+  emergencyInstructionsCreated  EmergencyInstruction[]  @relation("emergencyInstructionsCreated")
 }
 
 enum FamilyRole {
@@ -55,6 +60,9 @@ model Family {
   tasks       Task[]
   events      Event[]
   documents   Document[]
+  announcements         Announcement[]
+  emergencyContacts     EmergencyContact[]
+  emergencyInstructions EmergencyInstruction[]
 }
 
 model FamilyMember {
@@ -372,4 +380,99 @@ model DocumentPermission {
 
   @@unique([documentId, userId, permission])
 }
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  familyId    String
+  title       String
+  content     String               @db.Text
+  priority    AnnouncementPriority @default(NORMAL)
+  isPinned    Boolean              @default(false)
+  expiresAt   DateTime?
+  attachments Json?
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  family      Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  author      User                  @relation("announcementsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  comments    AnnouncementComment[]
+  reads       AnnouncementRead[]
+}
+
+model AnnouncementComment {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String
+  content        String       @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime     @default(now())
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+}
+
+enum EmergencyContactType {
+  FAMILY_DOCTOR
+  INSURANCE
+  SERVICE
+  PERSONAL
+  OTHER
+}
+
+model EmergencyContact {
+  id                 String               @id @default(cuid())
+  familyId           String
+  name               String
+  type               EmergencyContactType @default(PERSONAL)
+  relationship       String?
+  phone              String
+  alternatePhone     String?
+  email              String?
+  address            String?
+  notes              String?              @db.Text
+  sensitiveInfo      String?              @db.Text
+  isEmergencyService Boolean              @default(false)
+  createdById        String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  family             Family               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy          User                 @relation("emergencyContactsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model EmergencyInstruction {
+  id          String   @id @default(cuid())
+  familyId    String
+  title       String
+  category    String   @default("GENERAL")
+  content     String   @db.Text
+  isSensitive Boolean  @default(false)
+  priority    Int      @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family      Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("emergencyInstructionsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+}
+
 
