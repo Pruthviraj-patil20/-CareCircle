@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { User, TaskEscalation } from "@prisma/client";
+// Bypassing IDE cache issues for newly generated Prisma types
+type TaskEscalation = {
+  id: string;
+  taskId: string;
+  afterMinutes: number;
+  notifyUserId: string;
+  channel: "EMAIL" | "IN_APP" | "BOTH";
+  createdAt: Date;
+};
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +20,7 @@ import { toast } from "sonner";
 import { addEscalationRule, deleteEscalationRule } from "@/actions/escalations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-type Member = Pick<User, "id" | "name" | "email" | "image">;
+type Member = { id: string; name: string | null; email: string | null; image: string | null };
 
 interface TaskEscalationManagerProps {
   taskId: string;

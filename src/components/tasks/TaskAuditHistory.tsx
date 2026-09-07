@@ -1,6 +1,14 @@
 "use client";
 
-import { TaskAuditLog } from "@prisma/client";
+// Bypassing IDE cache issues for newly generated Prisma types
+type TaskAuditLog = {
+  id: string;
+  taskId: string;
+  action: string;
+  details: string | null;
+  createdAt: Date;
+};
+
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Activity, ArrowUpRight } from "lucide-react";
