@@ -1,4 +1,4 @@
-import { Event, EventParticipant, User } from "@prisma/client";
+import { User } from "@prisma/client";
 
 export type EventTypeType = "FAMILY" | "APPOINTMENT" | "BIRTHDAY" | "TRAVEL" | "SCHOOL" | "RENEWAL" | "OTHER";
 
