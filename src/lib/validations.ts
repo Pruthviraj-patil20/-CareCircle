@@ -55,3 +55,22 @@ export const UpdateTaskSchema = z.object({
   dueDate: z.string().nullable().optional(),
   assigneeIds: z.array(z.string()).optional(),
 });
+
+const BaseEventSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200, "Title too long"),
+  description: z.string().max(5000, "Description too long").optional(),
+  type: z.enum(["FAMILY", "APPOINTMENT", "BIRTHDAY", "TRAVEL", "SCHOOL", "RENEWAL", "OTHER"]).default("OTHER"),
+  isAllDay: z.boolean().default(false),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
+  location: z.string().max(300, "Location too long").optional(),
+  participantIds: z.array(z.string()).optional(),
+});
+
+export const CreateEventSchema = BaseEventSchema.refine(data => new Date(data.endTime) >= new Date(data.startTime), {
+  message: "End time must be after start time",
+  path: ["endTime"]
+});
+
+export const UpdateEventSchema = BaseEventSchema.partial();
+

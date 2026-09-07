@@ -22,9 +22,13 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   families      FamilyMember[]
-  tasksCreated  Task[]           @relation("tasksCreated")
-  taskAssignments TaskAssignment[] @relation("taskAssignments")
-  taskAssignedBy  TaskAssignment[] @relation("taskAssignedBy")
+  tasksCreated      Task[]             @relation("tasksCreated")
+  taskAssignments   TaskAssignment[]   @relation("taskAssignments")
+  taskAssignedBy    TaskAssignment[]   @relation("taskAssignedBy")
+
+  eventsCreated     Event[]            @relation("eventsCreated")
+  eventParticipants EventParticipant[] @relation("eventParticipants")
+  eventAssignedBy   EventParticipant[] @relation("eventAssignedBy")
 }
 
 enum FamilyRole {
@@ -44,6 +48,7 @@ model Family {
   members     FamilyMember[]
   invitations FamilyInvitation[]
   tasks       Task[]
+  events      Event[]
 }
 
 model FamilyMember {
@@ -188,4 +193,58 @@ model TaskReminder {
   createdAt DateTime @default(now())
 
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+enum EventType {
+  FAMILY
+  APPOINTMENT
+  BIRTHDAY
+  TRAVEL
+  SCHOOL
+  RENEWAL
+  OTHER
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  type        EventType @default(OTHER)
+  isAllDay    Boolean   @default(false)
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  familyId    String
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  family       Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy    User               @relation("eventsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  participants EventParticipant[]
+  reminders    EventReminder[]
+}
+
+model EventParticipant {
+  id           String   @id @default(cuid())
+  eventId      String
+  userId       String
+  assignedById String
+  createdAt    DateTime @default(now())
+
+  event      Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user       User  @relation("eventParticipants", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User  @relation("eventAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model EventReminder {
+  id        String   @id @default(cuid())
+  eventId   String
+  remindAt  DateTime
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
