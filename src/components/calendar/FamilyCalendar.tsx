@@ -120,40 +120,51 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
       
       <style jsx global>{`
         .fc-theme-standard td, .fc-theme-standard th {
-          border-color: hsl(var(--border));
+          border-color: var(--border);
         }
         .fc-theme-standard .fc-scrollgrid {
-          border-color: hsl(var(--border));
+          border-color: var(--border);
         }
         .fc-button-primary {
-          background-color: hsl(var(--primary)) !important;
-          border-color: hsl(var(--primary)) !important;
-          color: hsl(var(--primary-foreground)) !important;
+          background-color: var(--primary) !important;
+          border-color: var(--primary) !important;
+          color: var(--primary-foreground) !important;
+          border-radius: 0.5rem !important;
+          font-size: 0.8rem !important;
+          font-weight: 600 !important;
+          padding: 0.35rem 0.75rem !important;
         }
         .fc-button-primary:not(:disabled):active,
         .fc-button-primary:not(:disabled).fc-button-active {
-          background-color: hsl(var(--primary) / 0.9) !important;
-          border-color: hsl(var(--primary) / 0.9) !important;
+          opacity: 0.9 !important;
         }
         .fc .fc-toolbar-title {
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: hsl(var(--foreground));
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--foreground);
         }
         .fc .fc-col-header-cell-cushion {
-          color: hsl(var(--foreground));
+          color: var(--foreground);
           padding: 8px 4px;
+          font-size: 0.8rem;
+          font-weight: 600;
         }
         .fc .fc-daygrid-day-number {
-          color: hsl(var(--foreground));
+          color: var(--foreground);
           font-weight: 500;
+          font-size: 0.8rem;
+          padding: 6px;
         }
         .fc .fc-list-event-title a {
-          color: hsl(var(--foreground));
+          color: var(--foreground);
         }
         .fc .fc-timegrid-axis-cushion, 
         .fc .fc-timegrid-slot-label-cushion {
-          color: hsl(var(--muted-foreground));
+          color: var(--muted-foreground);
+          font-size: 0.75rem;
+        }
+        .fc-day-today {
+          background-color: var(--primary) / 5% !important;
         }
       `}</style>
     </div>

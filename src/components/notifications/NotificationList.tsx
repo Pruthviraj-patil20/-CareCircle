@@ -2,8 +2,27 @@
 
 import { useState, useTransition } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { markAsRead, markAllAsRead } from "@/actions/notifications";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
+import {
+  Bell,
+  BellCheck,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  FileText,
+  Megaphone,
+  Users,
+  Check,
+  ArrowRight,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { toast } from "sonner";
 
-// Bypassing IDE cache issues for newly generated Prisma types
 type Notification = {
   id: string;
   userId: string;
@@ -15,33 +34,26 @@ type Notification = {
   metadata?: any;
   createdAt: Date;
 };
-import { markAsRead, markAllAsRead } from "@/actions/notifications";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Bell, Check, CheckCircle2, Circle, Clock, AlertTriangle, Calendar, FileText, Megaphone, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { toast } from "sonner";
 
 const TypeIcon = ({ type }: { type: string }) => {
   switch (type) {
     case "TASK_ASSIGNED":
     case "TASK_COMPLETED":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+      return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case "TASK_DUE":
     case "CALENDAR_REMINDER":
-      return <Clock className="h-5 w-5 text-blue-500" />;
+      return <Clock className="h-4 w-4 text-blue-500" />;
     case "TASK_OVERDUE":
     case "ESCALATION":
-      return <AlertTriangle className="h-5 w-5 text-rose-500" />;
+      return <AlertTriangle className="h-4 w-4 text-rose-500" />;
     case "DOCUMENT_EXPIRY":
-      return <FileText className="h-5 w-5 text-amber-500" />;
+      return <FileText className="h-4 w-4 text-amber-500" />;
     case "ANNOUNCEMENT":
-      return <Megaphone className="h-5 w-5 text-purple-500" />;
+      return <Megaphone className="h-4 w-4 text-purple-500" />;
     case "FAMILY_INVITATION":
-      return <Users className="h-5 w-5 text-indigo-500" />;
+      return <Users className="h-4 w-4 text-primary" />;
     default:
-      return <Bell className="h-5 w-5 text-slate-500" />;
+      return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
@@ -50,7 +62,7 @@ export function NotificationList({ initialNotifications }: { initialNotification
   const [isPending, startTransition] = useTransition();
 
   const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, isRead: true } : n)));
     startTransition(async () => {
       await markAsRead(id);
     });
@@ -68,23 +80,23 @@ export function NotificationList({ initialNotifications }: { initialNotification
 
   if (notifications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border rounded-xl bg-card/50 shadow-sm border-dashed">
-        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <Check className="h-6 w-6 text-primary" />
-        </div>
-        <h3 className="text-xl font-semibold mb-2">You're all caught up!</h3>
-        <p className="text-muted-foreground max-w-sm">
-          No new notifications right now. Enjoy your day!
-        </p>
-      </div>
+      <EmptyState
+        icon={BellCheck}
+        title="You're all caught up!"
+        description="No new alerts or pending notices right now. We'll notify you as soon as there are updates in your circle."
+      />
     );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center px-1">
-        <span className="text-sm text-muted-foreground font-medium">
-          {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          {unreadCount > 0 ? (
+            <span className="text-primary font-bold">{unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</span>
+          ) : (
+            "All notifications read"
+          )}
         </span>
         {unreadCount > 0 && (
           <Button 
@@ -92,70 +104,82 @@ export function NotificationList({ initialNotifications }: { initialNotification
             size="sm" 
             onClick={handleMarkAll}
             disabled={isPending}
-            className="text-primary hover:text-primary/80"
+            className="text-xs text-muted-foreground hover:text-foreground h-8"
           >
+            <Check className="h-3.5 w-3.5 mr-1" />
             Mark all as read
           </Button>
         )}
       </div>
       
-      <div className="grid gap-3">
+      <StaggerContainer className="grid gap-2.5">
         {notifications.map((n) => (
-          <Card 
-            key={n.id} 
-            className={cn(
-              "overflow-hidden transition-all duration-200 border-l-4",
-              n.isRead 
-                ? "bg-background border-l-transparent shadow-sm opacity-70" 
-                : "bg-card border-l-primary shadow-md hover:shadow-lg"
-            )}
-          >
-            <CardContent className="p-0">
-              <div className="flex items-start gap-4 p-4 sm:p-5">
-                <div className="mt-1 flex-shrink-0 bg-secondary p-2 rounded-full">
-                  <TypeIcon type={n.type} />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 mb-1">
-                    <h4 className={cn("text-base font-semibold truncate", !n.isRead && "text-foreground")}>
-                      {n.title}
-                    </h4>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap font-medium flex-shrink-0">
-                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                    </span>
+          <StaggerItem key={n.id}>
+            <Card 
+              className={cn(
+                "overflow-hidden transition-all duration-200 border",
+                n.isRead 
+                  ? "bg-card/40 border-border/50 opacity-80 hover:opacity-100" 
+                  : "bg-card border-primary/30 shadow-xs hover:border-primary/50 hover:shadow-sm"
+              )}
+            >
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3.5">
+                  <div className={cn(
+                    "mt-0.5 flex-shrink-0 p-2 rounded-xl transition-colors",
+                    n.isRead ? "bg-muted/50" : "bg-primary/10"
+                  )}>
+                    <TypeIcon type={n.type} />
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                    {n.message}
-                  </p>
                   
-                  <div className="flex items-center gap-3">
-                    {n.link && (
-                      <Link href={n.link}>
-                        <Button variant="outline" size="sm" className="h-8 rounded-full px-4 text-xs font-medium">
-                          View Details
-                        </Button>
-                      </Link>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-3 mb-1">
+                      <div className="flex items-center gap-2">
+                        {!n.isRead && (
+                          <span className="h-2 w-2 rounded-full bg-primary shrink-0 animate-pulse" />
+                        )}
+                        <h4 className={cn("text-sm font-semibold tracking-tight truncate", !n.isRead ? "text-foreground font-bold" : "text-muted-foreground")}>
+                          {n.title}
+                        </h4>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                        {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                      {n.message}
+                    </p>
                     
-                    {!n.isRead && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 rounded-full px-3 text-xs font-medium hover:bg-primary/10 hover:text-primary"
-                        onClick={() => handleMarkAsRead(n.id)}
-                      >
-                        <Circle className="h-3.5 w-3.5 mr-1.5" />
-                        Mark Read
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {n.link && (
+                        <Link href={n.link}>
+                          <Button variant="secondary" size="sm" className="h-7 text-xs font-medium rounded-lg px-2.5 gap-1 hover:bg-secondary/80">
+                            <span>View</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        </Link>
+                      )}
+                      
+                      {!n.isRead && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs font-medium rounded-lg px-2.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleMarkAsRead(n.id)}
+                        >
+                          <Check className="h-3 w-3 mr-1 text-emerald-500" />
+                          Mark read
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerContainer>
     </div>
   );
 }
+

@@ -40,11 +40,11 @@ export function LoginForm() {
   };
 
   return (
-    <div className="space-y-6 w-full max-w-sm">
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-sm text-muted-foreground">
-          Enter your credentials to access your account
+    <div className="space-y-6 w-full">
+      <div className="space-y-1.5 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome back</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Enter your credentials to access your family dashboard
         </p>
       </div>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

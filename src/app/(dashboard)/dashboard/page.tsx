@@ -1,117 +1,83 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckSquare, AlertTriangle, Calendar as CalendarIcon, FileText } from "lucide-react"
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/db";
+import { redirect } from "next/navigation";
+import { getActiveFamilyId } from "@/actions/family";
+import { DashboardHomeClient } from "@/components/dashboard/DashboardHomeClient";
 
-export default function DashboardHome() {
+export const metadata = {
+  title: "Dashboard Overview | CareCircle",
+  description: "Family care coordination overview and active responsibilities.",
+};
+
+export default async function DashboardHome() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const familyId = await getActiveFamilyId();
+
+  let familyName = "Family Circle";
+  let metrics = {
+    pendingTasks: 0,
+    completedTasks: 0,
+    upcomingEvents: 0,
+    documentsCount: 0,
+    urgentAnnouncements: 0,
+  };
+  let recentActivities: any[] = [];
+
+  if (familyId) {
+    const [family, pendingTasks, completedTasks, upcomingEvents, docs, urgentAnnouncements, recentTasks] =
+      await Promise.all([
+        prisma.family.findUnique({ where: { id: familyId }, select: { name: true } }),
+        (prisma as any).task.count({
+          where: { familyId, status: { in: ["PENDING", "IN_PROGRESS", "OVERDUE"] } },
+        }),
+        (prisma as any).task.count({
+          where: { familyId, status: "COMPLETED" },
+        }),
+        (prisma as any).event.count({
+          where: { familyId, startTime: { gte: new Date() } },
+        }),
+        (prisma as any).document.count({
+          where: { familyId },
+        }),
+        (prisma as any).announcement.count({
+          where: { familyId, priority: { in: ["URGENT", "IMPORTANT"] } },
+        }),
+        (prisma as any).task.findMany({
+          where: { familyId },
+          orderBy: { updatedAt: "desc" },
+          take: 5,
+          include: { createdBy: { select: { name: true } } },
+        }),
+      ]);
+
+    if (family) familyName = family.name;
+
+    metrics = {
+      pendingTasks,
+      completedTasks,
+      upcomingEvents,
+      documentsCount: docs,
+      urgentAnnouncements,
+    };
+
+    recentActivities = recentTasks.map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      type: "TASK" as const,
+      updatedAt: t.updatedAt,
+      authorName: t.createdBy?.name || null,
+      status: t.status,
+    }));
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Good morning, Sarah</h1>
-          <p className="text-muted-foreground">Here's what's happening with your family today.</p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">+2 from yesterday</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4</div>
-            <p className="text-xs text-muted-foreground">Next: Dentist at 2 PM</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Documents</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">Insurance policy updated</p>
-          </CardContent>
-        </Card>
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">Action Required</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">1</div>
-            <p className="text-xs text-destructive/80">EpiPen expires in 5 days</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Your family has been active in the last 24 hours.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">Mike completed "Take out trash"</p>
-                  <p className="text-sm text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">New document "Q3 Report Card" uploaded</p>
-                  <p className="text-sm text-muted-foreground">5 hours ago by Sarah</p>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">Emma added "Soccer Practice" to Calendar</p>
-                  <p className="text-sm text-muted-foreground">Yesterday at 4:30 PM</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Frequently used tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex p-4 border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors items-center gap-4">
-              <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-                <CheckSquare className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h4 className="font-medium">Assign a Task</h4>
-                <p className="text-sm text-muted-foreground">Delegate chores to members</p>
-              </div>
-            </div>
-            <div className="flex p-4 border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors items-center gap-4">
-              <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h4 className="font-medium">Trigger Alert</h4>
-                <p className="text-sm text-muted-foreground">Notify family of emergency</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
+    <DashboardHomeClient
+      userName={session.user.name?.split(" ")[0] || "Friend"}
+      familyName={familyName}
+      metrics={metrics}
+      recentActivities={recentActivities}
+    />
+  );
 }

@@ -7,8 +7,26 @@ import { getActiveFamilyId } from "@/actions/family";
 import { TaskList } from "@/components/tasks/TaskList";
 import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, CheckSquare } from "lucide-react";
 import { TaskStatusType, TaskPriorityType } from "@/types/task";
+import { PageTransition } from "@/components/ui/page-transition";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+
+export const metadata = {
+  title: "Family Tasks | CareCircle",
+  description: "Coordinate, assign, and track daily responsibilities and care tasks.",
+};
+
+function FiltersSkeleton() {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3">
+      <Skeleton className="h-10 flex-1" />
+      <Skeleton className="h-10 w-32" />
+      <Skeleton className="h-10 w-32" />
+    </div>
+  );
+}
 
 export default async function TasksPage({
   searchParams,
@@ -22,12 +40,11 @@ export default async function TasksPage({
 
   if (!familyId) {
     return (
-      <div className="p-8 text-center bg-card rounded-lg border">
-        <h2 className="text-2xl font-bold mb-2">No Family Selected</h2>
-        <p className="text-muted-foreground">
-          Please select or create a family from the sidebar to view tasks.
-        </p>
-      </div>
+      <EmptyState
+        icon={CheckSquare}
+        title="No Family Circle Selected"
+        description="Please create or join a family circle from the sidebar to organize tasks."
+      />
     );
   }
 
@@ -41,25 +58,30 @@ export default async function TasksPage({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <PageTransition className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and track your family tasks.
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <CheckSquare className="w-7 h-7 text-primary" />
+            Family Tasks
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Coordinate, assign, and track daily household care and responsibilities.
           </p>
         </div>
-        <Button render={<Link href="/dashboard/tasks/new" />}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Task
-        </Button>
+        <Link href="/dashboard/tasks/new">
+          <Button size="sm" className="gap-2 shadow-sm">
+            <Plus className="h-4 w-4" />
+            New Task
+          </Button>
+        </Link>
       </div>
 
-      <Suspense fallback={<div>Loading filters...</div>}>
+      <Suspense fallback={<FiltersSkeleton />}>
         <TaskFilters />
       </Suspense>
 
       <TaskList tasks={tasks} />
-    </div>
+    </PageTransition>
   );
 }

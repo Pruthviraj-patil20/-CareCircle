@@ -1,25 +1,32 @@
+"use client";
+
 import { TaskWithAssignments } from "@/types/task";
 import { TaskCard } from "./TaskCard";
-import { ClipboardList } from "lucide-react";
+import { CheckSquare } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 
 export function TaskList({ tasks }: { tasks: TaskWithAssignments[] }) {
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <ClipboardList className="h-12 w-12 text-muted-foreground/50 mb-4" />
-        <h3 className="text-lg font-semibold">No tasks found</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Create a new task or adjust your filters.
-        </p>
-      </div>
+      <EmptyState
+        icon={CheckSquare}
+        title="No tasks found"
+        description="No responsibilities match your search or filter. You can assign a new task to any family member."
+        actionLabel="Assign First Task"
+        actionHref="/dashboard/tasks/new"
+        className="my-6"
+      />
     );
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} />
+        <StaggerItem key={task.id}>
+          <TaskCard task={task} />
+        </StaggerItem>
       ))}
-    </div>
+    </StaggerContainer>
   );
 }

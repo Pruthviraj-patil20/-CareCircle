@@ -41,13 +41,13 @@ export function ForgotPasswordForm() {
 
   if (isSubmitted) {
     return (
-      <div className="space-y-6 w-full max-w-sm text-center">
-        <h1 className="text-2xl font-bold">Check your email</h1>
-        <p className="text-sm text-muted-foreground">
-          If an account exists, a reset link has been sent to your email.
+      <div className="space-y-6 w-full text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Check your email</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          If an account exists with that address, a reset link has been dispatched.
         </p>
         <div className="mt-4">
-          <Link href="/login" className="text-sm underline">
+          <Link href="/login" className="text-xs font-medium text-primary hover:underline">
             Return to sign in
           </Link>
         </div>
@@ -56,11 +56,11 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-sm">
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Forgot Password</h1>
-        <p className="text-sm text-muted-foreground">
-          Enter your email to receive a password reset link
+    <div className="space-y-6 w-full">
+      <div className="space-y-1.5 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Forgot Password</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Enter your email to receive a secure recovery link
         </p>
       </div>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

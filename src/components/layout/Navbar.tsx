@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ShieldAlert } from "lucide-react"
+import { HeartHandshake } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -9,13 +9,13 @@ export async function Navbar() {
   const session = await auth();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="bg-primary/10 p-2 rounded-lg">
-            <ShieldAlert className="h-6 w-6 text-primary" />
+        <Link href="/" className="flex items-center space-x-2.5 group">
+          <div className="bg-primary/10 p-2 rounded-xl text-primary transition-transform duration-200 group-hover:scale-105">
+            <HeartHandshake className="h-5 w-5" />
           </div>
-          <span className="font-bold text-xl tracking-tight">CareCircle</span>
+          <span className="font-bold text-lg tracking-tight">CareCircle</span>
         </Link>
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium text-muted-foreground">
           <Link href="#features" className="transition-colors hover:text-foreground">Features</Link>

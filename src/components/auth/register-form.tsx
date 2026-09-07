@@ -43,11 +43,11 @@ export function RegisterForm() {
   };
 
   return (
-    <div className="space-y-6 w-full max-w-sm">
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Create an account</h1>
-        <p className="text-sm text-muted-foreground">
-          Enter your details below to create your account
+    <div className="space-y-6 w-full">
+      <div className="space-y-1.5 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Create an account</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Join your family care circle and coordinate support together
         </p>
       </div>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

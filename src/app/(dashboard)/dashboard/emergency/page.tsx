@@ -12,8 +12,14 @@ import {
   Stethoscope,
   Shield,
   UserCheck,
-  AlertTriangle,
 } from "lucide-react";
+import { PageTransition } from "@/components/ui/page-transition";
+import { EmptyState } from "@/components/ui/empty-state";
+
+export const metadata = {
+  title: "Emergency Response Hub | CareCircle",
+  description: "One-tap emergency dialing, family doctor contacts, insurance numbers, and critical protocols.",
+};
 
 export default async function EmergencyPage() {
   const session = await auth();
@@ -23,36 +29,32 @@ export default async function EmergencyPage() {
 
   if (!familyId) {
     return (
-      <div className="p-12 text-center bg-card rounded-2xl border max-w-lg mx-auto mt-12 shadow-sm">
-        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center mx-auto mb-4">
-          <ShieldAlert className="h-6 w-6" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2 text-rose-600">No Family Selected</h2>
-        <p className="text-muted-foreground text-sm">
-          Please select or create a family in the sidebar to access the emergency response center.
-        </p>
-      </div>
+      <EmptyState
+        icon={ShieldAlert}
+        title="No Family Circle Selected"
+        description="Please select or create a family circle from the sidebar to view emergency contacts."
+      />
     );
   }
 
   const data = await getEmergencyCenterData();
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-12">
+    <PageTransition className="space-y-8 max-w-6xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight text-rose-600 dark:text-rose-400 flex items-center gap-2">
-              <ShieldAlert className="h-8 w-8 text-rose-600" />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-rose-600 dark:text-rose-400 flex items-center gap-2.5">
+              <ShieldAlert className="h-7 w-7 text-rose-600" />
               Emergency Center
             </h1>
             <span className="flex items-center gap-1 text-[11px] font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-300 px-2.5 py-0.5 rounded-full border border-rose-300 dark:border-rose-800">
               High Priority Hub
             </span>
           </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Instant 1-tap mobile calling for hotlines, family doctors, insurance contacts, and critical medical protocols.
+          <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+            Instant 1-tap mobile calling for hotlines, family doctors, insurance helplines, and critical medical protocols.
           </p>
         </div>
 
@@ -70,7 +72,7 @@ export default async function EmergencyPage() {
         {/* Family Doctor & Clinics */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
               <Stethoscope className="h-4 w-4 text-blue-500" />
               Family Doctor & Primary Healthcare
             </h3>
@@ -78,7 +80,7 @@ export default async function EmergencyPage() {
           </div>
 
           {data.familyDoctors.length === 0 ? (
-            <div className="p-6 rounded-xl border border-dashed text-center text-xs text-muted-foreground bg-muted/10">
+            <div className="p-6 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground bg-muted/10">
               No primary physician or pediatrician listed. Add your family doctor for quick emergency reference.
             </div>
           ) : (
@@ -97,7 +99,7 @@ export default async function EmergencyPage() {
         {/* Insurance & Coverage */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
               <Shield className="h-4 w-4 text-emerald-500" />
               Health & Home Insurance Helplines
             </h3>
@@ -105,7 +107,7 @@ export default async function EmergencyPage() {
           </div>
 
           {data.insuranceContacts.length === 0 ? (
-            <div className="p-6 rounded-xl border border-dashed text-center text-xs text-muted-foreground bg-muted/10">
+            <div className="p-6 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground bg-muted/10">
               No insurance providers listed. Add health, auto, or home insurance claim helplines.
             </div>
           ) : (
@@ -125,7 +127,7 @@ export default async function EmergencyPage() {
         {data.personalContacts.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-purple-500" />
                 Trusted Neighbors & Alternate Contacts
               </h3>
@@ -150,6 +152,6 @@ export default async function EmergencyPage() {
         instructions={data.instructions}
         isFamilyAdmin={data.isFamilyAdmin}
       />
-    </div>
+    </PageTransition>
   );
 }

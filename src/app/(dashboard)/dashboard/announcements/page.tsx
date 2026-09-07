@@ -10,6 +10,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Megaphone, Pin, Bell, CheckCircle2 } from "lucide-react";
 import prisma from "@/lib/db";
 import { AnnouncementPriorityType } from "@/types/announcement";
+import { PageTransition, HoverCardMotion } from "@/components/ui/page-transition";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+
+export const metadata = {
+  title: "Announcements & Broadcasts | CareCircle",
+  description: "Family notices, pinned bulletins, schedule changes, and discussions.",
+};
 
 export default async function AnnouncementsPage({
   searchParams,
@@ -23,15 +31,11 @@ export default async function AnnouncementsPage({
 
   if (!familyId) {
     return (
-      <div className="p-12 text-center bg-card rounded-2xl border max-w-lg mx-auto mt-12 shadow-sm">
-        <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
-          <Megaphone className="h-6 w-6" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">No Family Selected</h2>
-        <p className="text-muted-foreground text-sm">
-          Please select or create a family in the sidebar to access announcements.
-        </p>
-      </div>
+      <EmptyState
+        icon={Megaphone}
+        title="No Family Selected"
+        description="Please select or create a family circle from the sidebar to view broadcasts."
+      />
     );
   }
 
@@ -48,7 +52,6 @@ export default async function AnnouncementsPage({
     priority: (params.priority as AnnouncementPriorityType | "ALL") || "ALL",
   });
 
-  // Calculate overview metrics
   const totalActive = announcements.filter(
     (a) => !a.expiresAt || new Date(a.expiresAt) >= new Date()
   ).length;
@@ -56,19 +59,21 @@ export default async function AnnouncementsPage({
   const totalUnread = announcements.filter((a) => !a.isReadByCurrentUser).length;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <PageTransition className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
-            <span className="flex items-center gap-1 text-[11px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
-              <Megaphone className="h-3 w-3" />
-              Family Broadcast
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Megaphone className="w-7 h-7 text-primary" />
+              Announcements
+            </h1>
+            <span className="flex items-center gap-1 text-[11px] font-semibold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+              Broadcasts
             </span>
           </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Keep everyone aligned with announcements, pinned bulletins, discussions, and expiry tracking.
+          <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+            Keep everyone aligned with announcements, pinned bulletins, discussions, and expiration tracking.
           </p>
         </div>
 
@@ -77,45 +82,51 @@ export default async function AnnouncementsPage({
 
       {/* Metric summary badges */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border bg-card shadow-2xs">
-          <CardContent className="p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <Bell className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground font-medium">Active Notices</p>
-              <p className="text-lg font-bold">{totalActive}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <HoverCardMotion>
+          <Card className="border border-border/70 bg-card shadow-2xs hover:shadow-xs hover:border-primary/30 transition-all">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Bell className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase">Active Notices</p>
+                <p className="text-base sm:text-lg font-bold text-foreground">{totalActive}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </HoverCardMotion>
 
-        <Card className="border bg-card shadow-2xs">
-          <CardContent className="p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Pin className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground font-medium">Pinned to Top</p>
-              <p className="text-lg font-bold text-amber-600">{totalPinned}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <HoverCardMotion>
+          <Card className="border border-border/70 bg-card shadow-2xs hover:shadow-xs hover:border-amber-500/30 transition-all">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Pin className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase">Pinned</p>
+                <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{totalPinned}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </HoverCardMotion>
 
-        <Card className="border bg-card shadow-2xs">
-          <CardContent className="p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground font-medium">Unread for You</p>
-              <p className="text-lg font-bold text-blue-600">{totalUnread}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <HoverCardMotion>
+          <Card className="border border-border/70 bg-card shadow-2xs hover:shadow-xs hover:border-blue-500/30 transition-all">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase">Unread</p>
+                <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400">{totalUnread}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </HoverCardMotion>
       </div>
 
       {/* Filter and Search */}
-      <Suspense fallback={<div className="h-16 bg-muted/20 animate-pulse rounded-xl" />}>
+      <Suspense fallback={<Skeleton className="h-14 rounded-xl" />}>
         <AnnouncementFilters />
       </Suspense>
 
@@ -125,6 +136,6 @@ export default async function AnnouncementsPage({
         currentUserId={session.user.id}
         isFamilyAdmin={isFamilyAdmin}
       />
-    </div>
+    </PageTransition>
   );
 }

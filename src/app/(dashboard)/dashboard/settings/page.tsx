@@ -6,6 +6,7 @@ import { getFamilyAuditLogs, getAuditStats } from "@/actions/audit";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users } from "lucide-react";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export const metadata = {
   title: "Circle Settings & Security | CareCircle",
@@ -72,24 +73,26 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="container py-8 px-4 sm:px-6">
-      <SettingsView
-        family={{
-          id: membership.family.id,
-          name: membership.family.name,
-          description: membership.family.description,
-        }}
-        currentUser={{
-          id: membership.user.id,
-          name: membership.user.name,
-          email: membership.user.email,
-          role: membership.user.role,
-        }}
-        userFamilyRole={membership.role}
-        isFamilyAdmin={isFamilyAdmin}
-        auditData={auditData}
-        auditStats={auditStats}
-      />
-    </div>
+    <PageTransition>
+      <div className="container py-8 px-4 sm:px-6">
+        <SettingsView
+          family={{
+            id: membership.family.id,
+            name: membership.family.name,
+            description: membership.family.description,
+          }}
+          currentUser={{
+            id: membership.user.id,
+            name: membership.user.name,
+            email: membership.user.email,
+            role: membership.user.role,
+          }}
+          userFamilyRole={membership.role}
+          isFamilyAdmin={isFamilyAdmin}
+          auditData={auditData}
+          auditStats={auditStats}
+        />
+      </div>
+    </PageTransition>
   );
 }
