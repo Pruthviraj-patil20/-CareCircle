@@ -32,6 +32,8 @@ model User {
 
   notifications     Notification[]
   notificationPref  NotificationPreference?
+  documentsCreated    Document[]           @relation("documentsCreated")
+  documentPermissions DocumentPermission[]
 }
 
 enum FamilyRole {
@@ -52,6 +54,7 @@ model Family {
   invitations FamilyInvitation[]
   tasks       Task[]
   events      Event[]
+  documents   Document[]
 }
 
 model FamilyMember {
@@ -320,3 +323,53 @@ model TaskAuditLog {
 
   task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
+
+enum DocumentCategory {
+  INSURANCE
+  PROPERTY
+  EDUCATION
+  VEHICLE
+  FINANCIAL
+  PERSONAL
+}
+
+enum DocumentPermissionType {
+  VIEW
+  DOWNLOAD
+  EDIT
+  DELETE
+}
+
+model Document {
+  id          String           @id @default(cuid())
+  familyId    String
+  title       String
+  description String?          @db.Text
+  category    DocumentCategory @default(PERSONAL)
+  fileKey     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  expiryDate  DateTime?
+  createdById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  family      Family               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy   User                 @relation("documentsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  permissions DocumentPermission[]
+}
+
+model DocumentPermission {
+  id         String                 @id @default(cuid())
+  documentId String
+  userId     String
+  permission DocumentPermissionType
+  createdAt  DateTime               @default(now())
+
+  document   Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId, permission])
+}
+
