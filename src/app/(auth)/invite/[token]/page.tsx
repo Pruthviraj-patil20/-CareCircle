@@ -11,7 +11,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const session = await auth();
   const { token } = await params;
   
-  const invitation = await prisma.familyInvitation.findUnique({
+  const invitation: any = await (prisma as any).familyInvitation.findUnique({
     where: { token },
     include: { family: true },
   });

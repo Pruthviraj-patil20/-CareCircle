@@ -41,7 +41,7 @@ import {
 import { toast } from "sonner";
 import { EmergencyContactItem, EmergencyContactTypeEnum } from "@/types/emergency";
 import { deleteEmergencyContact } from "@/actions/emergency";
-import { EditContactDialog } from "./EditContactDialog";
+import { EditContactDialog } from "@/components/emergency/EditContactDialog";
 
 interface EmergencyContactCardProps {
   contact: EmergencyContactItem;
