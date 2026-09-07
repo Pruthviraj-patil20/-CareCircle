@@ -22,6 +22,9 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   families      FamilyMember[]
+  tasksCreated  Task[]           @relation("tasksCreated")
+  taskAssignments TaskAssignment[] @relation("taskAssignments")
+  taskAssignedBy  TaskAssignment[] @relation("taskAssignedBy")
 }
 
 enum FamilyRole {
@@ -40,6 +43,7 @@ model Family {
   
   members     FamilyMember[]
   invitations FamilyInvitation[]
+  tasks       Task[]
 }
 
 model FamilyMember {
@@ -127,4 +131,61 @@ model InviteToken {
   role    UserRole @default(USER)
 
   @@unique([email, token])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(PENDING)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  familyId    String
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  family      Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("tasksCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  assignments TaskAssignment[]
+  reminders   TaskReminder[]
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String
+  userId     String
+  assignedById String
+  createdAt  DateTime @default(now())
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation("taskAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User     @relation("taskAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+}
+
+model TaskReminder {
+  id        String   @id @default(cuid())
+  taskId    String
+  remindAt  DateTime
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
