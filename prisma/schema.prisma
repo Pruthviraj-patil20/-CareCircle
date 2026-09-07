@@ -29,6 +29,9 @@ model User {
   eventsCreated     Event[]            @relation("eventsCreated")
   eventParticipants EventParticipant[] @relation("eventParticipants")
   eventAssignedBy   EventParticipant[] @relation("eventAssignedBy")
+
+  notifications     Notification[]
+  notificationPref  NotificationPreference?
 }
 
 enum FamilyRole {
@@ -247,4 +250,44 @@ model EventReminder {
   createdAt DateTime @default(now())
 
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE
+  TASK_OVERDUE
+  TASK_COMPLETED
+  ESCALATION
+  CALENDAR_REMINDER
+  DOCUMENT_EXPIRY
+  ANNOUNCEMENT
+  FAMILY_INVITATION
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  link      String?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreference {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  emailEnabled Boolean @default(true)
+  inAppEnabled Boolean @default(true)
+  
+  tasks        Boolean @default(true)
+  calendar     Boolean @default(true)
+  documents    Boolean @default(true)
+  announcements Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

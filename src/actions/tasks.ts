@@ -7,6 +7,7 @@ import { getActiveFamilyId } from "@/actions/family";
 import { CreateTaskSchema, UpdateTaskSchema } from "@/lib/validations";
 import { Prisma } from "@prisma/client";
 import { TaskStatusType, TaskPriorityType } from "@/types/task";
+import { inngest } from "@/inngest/client";
 
 async function verifyFamilyMembership(familyId: string, userId: string) {
   const membership = await prisma.familyMember.findUnique({
@@ -121,7 +122,7 @@ export async function createTask(formData: FormData) {
       createdById: session.user.id,
       assignments: assigneeIds?.length
         ? {
-            create: assigneeIds.map((userId) => ({
+            create: assigneeIds.map((userId: string) => ({
               userId,
               assignedById: session.user.id!,
             })),
@@ -129,6 +130,36 @@ export async function createTask(formData: FormData) {
         : undefined,
     },
   });
+
+  if (assigneeIds?.length) {
+    const events = assigneeIds.map(userId => ({
+      name: "notification/dispatch" as const,
+      data: {
+        userId,
+        title: "New Task Assigned",
+        message: `You have been assigned to the task: ${title}`,
+        type: "TASK_ASSIGNED" as const,
+        link: `/dashboard/tasks/${task.id}`,
+        sendEmail: true,
+        familyId,
+      }
+    }));
+    await inngest.send(events);
+  }
+
+  if (dueDate) {
+    await inngest.send({
+      name: "reminder/schedule",
+      data: {
+        userId: session.user.id,
+        title: "Task Due Soon",
+        message: `The task "${title}" is due soon.`,
+        type: "TASK_DUE",
+        remindAt: new Date(new Date(dueDate).getTime() - 24 * 60 * 60 * 1000), // Remind 1 day before
+        link: `/dashboard/tasks/${task.id}`,
+      }
+    });
+  }
 
   revalidatePath("/dashboard/tasks");
   return { success: "Task created!", taskId: task.id };

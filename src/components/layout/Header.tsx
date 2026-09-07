@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Bell, Menu, Search, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -48,11 +49,13 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative rounded-full">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive"></span>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <Link href="/dashboard/notifications">
+          <Button variant="ghost" size="icon" className="relative rounded-full">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive"></span>
+            <span className="sr-only">Notifications</span>
+          </Button>
+        </Link>
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="rounded-full" />}>

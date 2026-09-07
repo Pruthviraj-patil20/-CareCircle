@@ -1,0 +1,14 @@
+import { serve } from "inngest/next";
+import { inngest } from "@/inngest/client";
+import { dispatchNotification } from "@/inngest/jobs/notifications";
+import { scheduleReminder, checkOverdueTasks } from "@/inngest/jobs/reminders";
+
+// Expose the Inngest API route securely
+export const { GET, POST, PUT } = serve({
+  client: inngest,
+  functions: [
+    dispatchNotification,
+    scheduleReminder,
+    checkOverdueTasks,
+  ],
+});
