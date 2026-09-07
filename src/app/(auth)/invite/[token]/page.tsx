@@ -7,11 +7,12 @@ import { acceptInvitation } from "@/actions/family";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
-export default async function InvitePage({ params }: { params: { token: string } }) {
+export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const session = await auth();
+  const { token } = await params;
   
   const invitation = await prisma.familyInvitation.findUnique({
-    where: { token: params.token },
+    where: { token },
     include: { family: true },
   });
 
@@ -49,7 +50,7 @@ export default async function InvitePage({ params }: { params: { token: string }
         </div>
         <RegisterForm />
         <p className="text-sm">
-          Already have an account? <Link href={`/login?callbackUrl=/invite/${params.token}`} className="underline">Log in</Link>
+          Already have an account? <Link href={`/login?callbackUrl=/invite/${token}`} className="underline">Log in</Link>
         </p>
       </div>
     );
@@ -71,7 +72,7 @@ export default async function InvitePage({ params }: { params: { token: string }
   // Define Server Action wrapper to handle the acceptance
   async function handleAccept() {
     "use server";
-    await acceptInvitation(params.token);
+    await acceptInvitation(token);
     redirect("/dashboard");
   }
 
