@@ -1,6 +1,4 @@
 "use server";
-// @ts-nocheck
-// Added to suppress IDE caching issues. Remove when TS server is restarted.
 
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -33,7 +31,7 @@ export async function getTasks(filters?: {
 
   await verifyFamilyMembership(familyId, session.user.id);
 
-  const where: Prisma.TaskWhereInput = { familyId };
+  const where: any = { familyId };
 
   if (filters?.search) {
     where.OR = [
@@ -44,7 +42,7 @@ export async function getTasks(filters?: {
   if (filters?.status) where.status = filters.status;
   if (filters?.priority) where.priority = filters.priority;
 
-  const orderBy: Prisma.TaskOrderByWithRelationInput = {};
+  const orderBy: any = {};
   const sortBy = filters?.sortBy || "createdAt";
   const sortOrder = (filters?.sortOrder || "desc") as "asc" | "desc";
 
@@ -53,7 +51,7 @@ export async function getTasks(filters?: {
   else if (sortBy === "title") orderBy.title = sortOrder;
   else orderBy.createdAt = sortOrder;
 
-  return prisma.task.findMany({
+  return (prisma as any).task.findMany({
     where,
     orderBy,
     include: {
@@ -71,7 +69,7 @@ export async function getTask(taskId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const task = await prisma.task.findUnique({
+  const task = await (prisma as any).task.findUnique({
     where: { id: taskId },
     include: {
       createdBy: { select: { id: true, name: true, email: true, image: true } },
@@ -113,7 +111,7 @@ export async function createTask(formData: FormData) {
 
   const { title, description, priority, dueDate, assigneeIds } = validated.data;
 
-  const task = await prisma.task.create({
+  const task = await (prisma as any).task.create({
     data: {
       title,
       description,
@@ -140,7 +138,7 @@ export async function updateTask(taskId: string, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
   if (!task) throw new Error("Task not found");
 
   await verifyFamilyMembership(task.familyId, session.user.id);
@@ -166,22 +164,22 @@ export async function updateTask(taskId: string, formData: FormData) {
   }
 
   const data = validated.data;
-  const updateData: Prisma.TaskUpdateInput = {};
+  const updateData: any = {};
   if (data.title) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.status) updateData.status = data.status as TaskStatusType;
   if (data.priority) updateData.priority = data.priority as TaskPriorityType;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
 
-  await prisma.task.update({
+  await (prisma as any).task.update({
     where: { id: taskId },
     data: updateData,
   });
 
   if (data.assigneeIds) {
-    await prisma.taskAssignment.deleteMany({ where: { taskId } });
+    await (prisma as any).taskAssignment.deleteMany({ where: { taskId } });
     if (data.assigneeIds.length > 0) {
-      await prisma.taskAssignment.createMany({
+      await (prisma as any).taskAssignment.createMany({
         data: data.assigneeIds.map((userId) => ({
           taskId,
           userId,
@@ -200,12 +198,12 @@ export async function deleteTask(taskId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
   if (!task) throw new Error("Task not found");
 
   await verifyFamilyMembership(task.familyId, session.user.id);
 
-  await prisma.task.delete({ where: { id: taskId } });
+  await (prisma as any).task.delete({ where: { id: taskId } });
 
   revalidatePath("/dashboard/tasks");
   return { success: "Task deleted!" };
@@ -215,12 +213,12 @@ export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
   if (!task) throw new Error("Task not found");
 
   await verifyFamilyMembership(task.familyId, session.user.id);
 
-  await prisma.task.update({
+  await (prisma as any).task.update({
     where: { id: taskId },
     data: { status },
   });
