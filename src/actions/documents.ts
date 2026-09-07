@@ -1,7 +1,6 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import {
@@ -16,6 +15,16 @@ import {
   getDownloadSignedUrl,
   deleteFile,
 } from "@/lib/storage";
+import {
+  authorizeAction,
+  logAuditEvent,
+  SecurityError,
+} from "@/lib/security";
+import {
+  UploadDocumentMetadataSchema,
+  UpdateDocumentSchema,
+  UpdateDocumentPermissionsSchema,
+} from "@/lib/validations";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 
@@ -32,14 +41,6 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
-
-async function verifyFamilyMembership(familyId: string, userId: string) {
-  const membership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId } },
-  });
-  if (!membership) throw new Error("You are not a member of this family");
-  return membership;
-}
 
 export async function getUserDocumentPermissions(
   doc: any,
@@ -77,13 +78,13 @@ export async function getUserDocumentPermissions(
 }
 
 export async function getDocuments(filters?: DocumentFilterOptions): Promise<DocumentWithDetails[]> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
   if (!familyId) return [];
 
-  const membership = await verifyFamilyMembership(familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "GET_DOCUMENTS",
+  });
 
   const where: any = { familyId };
 
@@ -134,10 +135,9 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
     },
   });
 
-  // Attach user specific permissions and filter docs the user is allowed to view
   const result: DocumentWithDetails[] = [];
   for (const doc of docs) {
-    const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+    const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
     if (perms.canView) {
       result.push({
         ...doc,
@@ -150,8 +150,7 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
 }
 
 export async function getDocument(documentId: string): Promise<DocumentWithDetails> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!documentId) throw new SecurityError("INVALID_ID", "Document ID is required", 400);
 
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
@@ -165,13 +164,16 @@ export async function getDocument(documentId: string): Promise<DocumentWithDetai
     },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "GET_DOCUMENT",
+  });
 
+  const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
   if (!perms.canView) {
-    throw new Error("You do not have permission to view this document");
+    throw new SecurityError("FORBIDDEN_DOCUMENT_ACCESS", "You do not have permission to view this document", 403);
   }
 
   return {
@@ -181,39 +183,48 @@ export async function getDocument(documentId: string): Promise<DocumentWithDetai
 }
 
 export async function uploadDocument(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
-  if (!familyId) throw new Error("No active family selected");
+  if (!familyId) throw new SecurityError("NO_ACTIVE_FAMILY", "No active family selected", 400);
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "UPLOAD_DOCUMENT",
+  });
 
   const file = formData.get("file") as File | null;
   if (!file || typeof file.size !== "number" || file.size === 0) {
-    throw new Error("A valid file is required");
+    throw new SecurityError("INVALID_FILE", "A valid non-empty file is required", 400);
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error(`File exceeds the maximum allowed size of 25 MB (${(file.size / (1024 * 1024)).toFixed(1)} MB provided)`);
+    throw new SecurityError(
+      "FILE_TOO_LARGE",
+      `File exceeds maximum allowed size of 25 MB (${(file.size / (1024 * 1024)).toFixed(1)} MB provided)`,
+      400
+    );
   }
 
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    // If mime type is generic octet-stream, check extension
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    const allowedExts = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "txt", "doc", "docx", "xls", "xlsx", "csv"];
-    if (!ext || !allowedExts.includes(ext)) {
-      throw new Error(`File type "${file.type || ext}" is not supported. Supported types: PDF, Images, Word, Excel, Text.`);
-    }
+  // Validate MIME type & file extension
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const allowedExts = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "txt", "csv", "doc", "docx", "xls", "xlsx"];
+  if (!ALLOWED_MIME_TYPES.includes(file.type) && (!ext || !allowedExts.includes(ext))) {
+    throw new SecurityError("UNSUPPORTED_FILE_TYPE", `File type "${file.type || ext}" is not permitted`, 400);
   }
 
-  const title = (formData.get("title") as string)?.trim();
-  if (!title) throw new Error("Document title is required");
+  // Validate metadata with Zod
+  const rawMetadata = {
+    title: formData.get("title") as string,
+    description: (formData.get("description") as string) || undefined,
+    category: (formData.get("category") as DocumentCategoryType) || "PERSONAL",
+    expiryDate: (formData.get("expiryDate") as string) || undefined,
+  };
 
-  const description = (formData.get("description") as string)?.trim() || null;
-  const category = (formData.get("category") as DocumentCategoryType) || "PERSONAL";
-  const expiryDateStr = formData.get("expiryDate") as string | null;
-  const expiryDate = expiryDateStr ? new Date(expiryDateStr) : null;
+  const validated = UploadDocumentMetadataSchema.safeParse(rawMetadata);
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
+
+  const { title, description, category, expiryDate } = validated.data;
 
   // Generate safe storage key
   const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
@@ -225,7 +236,7 @@ export async function uploadDocument(formData: FormData) {
   // Upload to Cloudflare R2 / S3
   await uploadFile(uniqueKey, buffer, file.type || "application/octet-stream");
 
-  // Save metadata to PostgreSQL
+  // Save metadata to database
   const doc = await (prisma as any).document.create({
     data: {
       familyId,
@@ -236,9 +247,26 @@ export async function uploadDocument(formData: FormData) {
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type || "application/octet-stream",
-      expiryDate,
-      createdById: session.user.id,
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      createdById: ctx.user.id,
     },
+  });
+
+  await logAuditEvent({
+    action: "DOCUMENT_UPLOADED",
+    entityType: "DOCUMENT",
+    familyId,
+    userId: ctx.user.id,
+    entityId: doc.id,
+    details: {
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+      category,
+      title,
+    },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard/documents");
@@ -254,31 +282,47 @@ export async function updateDocument(
     expiryDate?: string | null;
   }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const validated = UpdateDocumentSchema.safeParse(data);
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
 
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "UPDATE_DOCUMENT",
+  });
 
+  const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
   if (!perms.canEdit) {
-    throw new Error("You do not have permission to edit this document");
+    throw new SecurityError("FORBIDDEN_DOCUMENT_EDIT", "You do not have permission to edit this document", 403);
   }
 
   await (prisma as any).document.update({
     where: { id: documentId },
     data: {
-      title: data.title.trim(),
-      description: data.description ? data.description.trim() : null,
-      category: data.category,
-      expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+      title: validated.data.title,
+      description: validated.data.description,
+      category: validated.data.category,
+      expiryDate: validated.data.expiryDate ? new Date(validated.data.expiryDate) : null,
     },
+  });
+
+  await logAuditEvent({
+    action: "DOCUMENT_UPDATED",
+    entityType: "DOCUMENT",
+    familyId: doc.familyId,
+    userId: ctx.user.id,
+    entityId: documentId,
+    details: { title: validated.data.title, category: validated.data.category },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard/documents");
@@ -287,29 +331,40 @@ export async function updateDocument(
 }
 
 export async function deleteDocument(documentId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "DELETE_DOCUMENT",
+  });
 
+  const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
   if (!perms.canDelete) {
-    throw new Error("You do not have permission to delete this document");
+    throw new SecurityError("FORBIDDEN_DOCUMENT_DELETE", "You do not have permission to delete this document", 403);
   }
 
   // Delete from object storage
   await deleteFile(doc.fileKey);
 
-  // Delete from PostgreSQL (Prisma cascades permissions)
+  // Delete from database
   await (prisma as any).document.delete({
     where: { id: documentId },
+  });
+
+  await logAuditEvent({
+    action: "DOCUMENT_DELETED",
+    entityType: "DOCUMENT",
+    familyId: doc.familyId,
+    userId: ctx.user.id,
+    entityId: documentId,
+    details: { title: doc.title, fileName: doc.fileName },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard/documents");
@@ -317,46 +372,70 @@ export async function deleteDocument(documentId: string) {
 }
 
 export async function getDocumentPreviewUrl(documentId: string): Promise<{ url: string; mimeType: string }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "PREVIEW_DOCUMENT",
+  });
 
+  const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
   if (!perms.canView) {
-    throw new Error("You do not have permission to view this document");
+    throw new SecurityError("FORBIDDEN_DOCUMENT_ACCESS", "You do not have permission to view this document", 403);
   }
 
   const url = await getPreviewSignedUrl(doc.fileKey, doc.mimeType);
+
+  await logAuditEvent({
+    action: "DOCUMENT_VIEWED",
+    entityType: "DOCUMENT",
+    familyId: doc.familyId,
+    userId: ctx.user.id,
+    entityId: documentId,
+    details: { fileName: doc.fileName },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
   return { url, mimeType: doc.mimeType };
 }
 
 export async function getDocumentDownloadUrl(documentId: string): Promise<{ url: string; fileName: string }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  const perms = await getUserDocumentPermissions(doc, session.user.id, membership.role);
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "DOWNLOAD_DOCUMENT",
+  });
 
+  const perms = await getUserDocumentPermissions(doc, ctx.user.id, ctx.membership!.role);
   if (!perms.canDownload) {
-    throw new Error("You do not have permission to download this document");
+    throw new SecurityError("FORBIDDEN_DOCUMENT_DOWNLOAD", "You do not have permission to download this document", 403);
   }
 
   const url = await getDownloadSignedUrl(doc.fileKey, doc.fileName);
+
+  await logAuditEvent({
+    action: "DOCUMENT_DOWNLOADED",
+    entityType: "DOCUMENT",
+    familyId: doc.familyId,
+    userId: ctx.user.id,
+    entityId: documentId,
+    details: { fileName: doc.fileName },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
   return { url, fileName: doc.fileName };
 }
 
@@ -364,34 +443,58 @@ export async function updateDocumentPermissions(
   documentId: string,
   userPermissions: { userId: string; permissions: DocumentPermissionType[] }[]
 ) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const validated = UpdateDocumentPermissionsSchema.safeParse({ documentId, userPermissions });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
 
   const doc = await (prisma as any).document.findUnique({
     where: { id: documentId },
   });
 
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new SecurityError("NOT_FOUND", "Document not found", 404);
 
-  const membership = await verifyFamilyMembership(doc.familyId, session.user.id);
-  
-  // Only family OWNER/ADMIN or the document uploader can manage permissions
-  const canManage = membership.role === "OWNER" || membership.role === "ADMIN" || doc.createdById === session.user.id;
+  const ctx = await authorizeAction({
+    familyId: doc.familyId,
+    actionName: "UPDATE_DOCUMENT_PERMISSIONS",
+  });
+
+  // Only family OWNER/ADMIN or original creator can manage permissions
+  const canManage =
+    ctx.membership!.role === "OWNER" ||
+    ctx.membership!.role === "ADMIN" ||
+    doc.createdById === ctx.user.id;
+
   if (!canManage) {
-    throw new Error("Only family managers or document uploaders can configure permissions");
+    throw new SecurityError(
+      "PRIVILEGE_VIOLATION",
+      "Only family managers or the document uploader can configure permissions",
+      403
+    );
   }
 
+  // Ensure target users are members of the same family
+  const targetUserIds = validated.data.userPermissions.map((u) => u.userId);
+  const familyMembers = await prisma.familyMember.findMany({
+    where: {
+      familyId: doc.familyId,
+      userId: { in: targetUserIds },
+    },
+    select: { userId: true },
+  });
+  const validMemberIds = new Set(familyMembers.map((m) => m.userId));
+
   // Remove existing permissions for the targeted users and insert updated ones
-  const userIds = userPermissions.map((u) => u.userId);
   await (prisma as any).documentPermission.deleteMany({
     where: {
       documentId,
-      userId: { in: userIds },
+      userId: { in: targetUserIds },
     },
   });
 
   const recordsToCreate: any[] = [];
-  for (const item of userPermissions) {
+  for (const item of validated.data.userPermissions) {
+    if (!validMemberIds.has(item.userId)) continue; // ignore non-family members
     for (const perm of item.permissions) {
       recordsToCreate.push({
         documentId,
@@ -408,18 +511,32 @@ export async function updateDocumentPermissions(
     });
   }
 
+  await logAuditEvent({
+    action: "PERMISSION_CHANGED",
+    entityType: "DOCUMENT",
+    familyId: doc.familyId,
+    userId: ctx.user.id,
+    entityId: documentId,
+    details: {
+      modifiedUsersCount: targetUserIds.length,
+      ruleCount: recordsToCreate.length,
+    },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
   revalidatePath(`/dashboard/documents/${documentId}`);
   return { success: true };
 }
 
 export async function getDocumentVaultStats() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
   if (!familyId) return { totalDocs: 0, expiringSoon: 0, expired: 0, totalBytes: 0 };
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  await authorizeAction({
+    familyId,
+    actionName: "GET_VAULT_STATS",
+  });
 
   const now = new Date();
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -454,21 +571,24 @@ export async function getDocumentVaultStats() {
   };
 }
 
-export async function getDocumentFamilyMembers() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
+export async function getDocumentFamilyMembers(): Promise<
+  { id: string; name: string | null; email: string | null; image: string | null; role: string }[]
+> {
   const familyId = await getActiveFamilyId();
   if (!familyId) return [];
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  await authorizeAction({
+    familyId,
+    actionName: "GET_DOCUMENT_FAMILY_MEMBERS",
+  });
 
   const members = await prisma.familyMember.findMany({
     where: { familyId },
     include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: {
+        select: { id: true, name: true, email: true, image: true },
+      },
     },
-    orderBy: { createdAt: "asc" },
   });
 
   return members.map((m) => ({

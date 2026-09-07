@@ -1,11 +1,22 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { FamilyRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { canManageFamily, canInviteMembers, canRemoveMember, canChangeRole } from "@/lib/permissions";
+import {
+  authorizeAction,
+  logAuditEvent,
+  SecurityError,
+} from "@/lib/security";
+import {
+  CreateFamilySchema,
+  UpdateFamilySchema,
+  InviteMemberSchema,
+  ChangeRoleSchema,
+  RemoveMemberSchema,
+} from "@/lib/validations";
 
 export async function getActiveFamilyId() {
   const cookieStore = await cookies();
@@ -13,43 +24,56 @@ export async function getActiveFamilyId() {
 }
 
 export async function setActiveFamily(familyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
-  // Verify the user is actually a member of this family
-  const membership = await prisma.familyMember.findUnique({
-    where: {
-      familyId_userId: {
-        familyId,
-        userId: session.user.id,
-      },
-    },
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "SET_ACTIVE_FAMILY",
   });
 
-  if (!membership) throw new Error("You are not a member of this family");
-
   const cookieStore = await cookies();
-  cookieStore.set("activeFamilyId", familyId, { path: "/", maxAge: 60 * 60 * 24 * 30 }); // 30 days
+  cookieStore.set("activeFamilyId", familyId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
   revalidatePath("/");
   
   return { success: true };
 }
 
 export async function createFamily(name: string, description?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const validated = CreateFamilySchema.safeParse({ name, description });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
+
+  const ctx = await authorizeAction({
+    actionName: "CREATE_FAMILY",
+  });
 
   const family = await prisma.family.create({
     data: {
-      name,
-      description,
+      name: validated.data.name,
+      description: validated.data.description,
       members: {
         create: {
-          userId: session.user.id,
+          userId: ctx.user.id,
           role: "OWNER",
         },
       },
     },
+  });
+
+  await logAuditEvent({
+    action: "FAMILY_CREATED",
+    entityType: "FAMILY",
+    familyId: family.id,
+    userId: ctx.user.id,
+    entityId: family.id,
+    details: { name: family.name },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   await setActiveFamily(family.id);
@@ -57,97 +81,156 @@ export async function createFamily(name: string, description?: string) {
 }
 
 export async function updateFamily(familyId: string, name: string, description?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
-  const membership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId: session.user.id } },
-  });
-
-  if (!membership || !canManageFamily(membership.role)) {
-    throw new Error("Unauthorized");
+  const validated = UpdateFamilySchema.safeParse({ familyId, name, description });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  await prisma.family.update({
+  const ctx = await authorizeAction({
+    familyId,
+    requiredRoles: ["OWNER", "ADMIN"],
+    actionName: "UPDATE_FAMILY",
+  });
+
+  const updatedFamily = await prisma.family.update({
     where: { id: familyId },
-    data: { name, description },
+    data: {
+      name: validated.data.name,
+      description: validated.data.description,
+    },
+  });
+
+  await logAuditEvent({
+    action: "FAMILY_UPDATED",
+    entityType: "FAMILY",
+    familyId,
+    userId: ctx.user.id,
+    entityId: familyId,
+    details: { name: updatedFamily.name },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings");
   return { success: "Family updated successfully!" };
 }
 
 export async function inviteMember(familyId: string, email: string, role: FamilyRole) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const validated = InviteMemberSchema.safeParse({ familyId, email, role });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
 
-  const membership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId: session.user.id } },
+  const ctx = await authorizeAction({
+    familyId,
+    requiredRoles: ["OWNER", "ADMIN"],
+    actionName: "INVITE_MEMBER",
   });
 
-  if (!membership || !canInviteMembers(membership.role)) {
-    throw new Error("Unauthorized");
+  // Strict Privilege Escalation Protection:
+  // 1. OWNER cannot be invited directly
+  if ((validated.data.role as string) === "OWNER") {
+    throw new SecurityError("PRIVILEGE_ESCALATION", "Cannot invite a member as OWNER. Families have exactly one primary owner.", 403);
   }
-  
-  // Can't invite someone as an OWNER unless you are transferring ownership (not implemented)
-  if (role === "OWNER") throw new Error("Cannot invite as OWNER");
 
-  // Generate 48 char token
+  // 2. ADMIN cannot invite another ADMIN (only OWNER can appoint ADMINs)
+  if (ctx.membership?.role === "ADMIN" && validated.data.role === "ADMIN") {
+    throw new SecurityError("PRIVILEGE_ESCALATION", "Only the family Owner can invite administrators.", 403);
+  }
+
+  // Generate cryptographically secure token
   const token = Array.from(crypto.getRandomValues(new Uint8Array(36)))
     .map(b => b.toString(16).padStart(2, '0')).join('');
 
   await prisma.familyInvitation.upsert({
     where: {
-      familyId_email: { familyId, email },
+      familyId_email: { familyId, email: validated.data.email },
     },
     update: {
-      role,
+      role: validated.data.role,
       token,
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
     },
     create: {
       familyId,
-      email,
-      role,
+      email: validated.data.email,
+      role: validated.data.role,
       token,
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
     },
   });
 
-  // MOCK EMAIL SENDING
-  console.log(`[EMAIL_MOCK] Family invite link for ${email}: http://localhost:3000/invite/${token}`);
+  await logAuditEvent({
+    action: "FAMILY_INVITATION_SENT",
+    entityType: "MEMBER",
+    familyId,
+    userId: ctx.user.id,
+    details: { invitedEmail: validated.data.email, role: validated.data.role },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
+  console.log(`[EMAIL_MOCK] Family invite link for ${validated.data.email}: http://localhost:3000/invite/${token}`);
 
   return { success: "Invitation sent!" };
 }
 
 export async function acceptInvitation(token: string) {
-  const session = await auth();
-  if (!session?.user?.id || !session.user.email) throw new Error("Unauthorized");
+  if (!token || typeof token !== "string") {
+    throw new SecurityError("INVALID_TOKEN", "Invitation token is required", 400);
+  }
+
+  const ctx = await authorizeAction({
+    actionName: "ACCEPT_INVITATION",
+  });
 
   const invitation = await prisma.familyInvitation.findUnique({
     where: { token },
   });
 
-  if (!invitation) throw new Error("Invalid or expired invitation");
-  if (new Date() > invitation.expires) throw new Error("Invitation expired");
+  if (!invitation) throw new SecurityError("INVALID_INVITATION", "Invalid or expired invitation link", 404);
+  if (new Date() > invitation.expires) throw new SecurityError("EXPIRED_INVITATION", "This invitation has expired", 400);
   
-  // We strictly enforce that the logged in user's email matches the invite email
-  if (invitation.email !== session.user.email) {
-    throw new Error("This invitation was sent to a different email address");
+  // Strictly enforce that the logged in user's email matches the invite email
+  if (invitation.email.toLowerCase() !== ctx.user.email.toLowerCase()) {
+    throw new SecurityError("EMAIL_MISMATCH", "This invitation was sent to a different email address", 403);
   }
 
-  // Create membership
-  await prisma.familyMember.create({
-    data: {
-      familyId: invitation.familyId,
-      userId: session.user.id,
-      role: invitation.role,
+  // Check if already a member
+  const existingMembership = await prisma.familyMember.findUnique({
+    where: {
+      familyId_userId: {
+        familyId: invitation.familyId,
+        userId: ctx.user.id,
+      },
     },
   });
 
-  // Delete invitation
+  if (!existingMembership) {
+    await prisma.familyMember.create({
+      data: {
+        familyId: invitation.familyId,
+        userId: ctx.user.id,
+        role: invitation.role,
+      },
+    });
+  }
+
+  // Delete consumed invitation
   await prisma.familyInvitation.delete({
     where: { id: invitation.id },
+  });
+
+  await logAuditEvent({
+    action: "FAMILY_INVITATION_ACCEPTED",
+    entityType: "MEMBER",
+    familyId: invitation.familyId,
+    userId: ctx.user.id,
+    entityId: ctx.user.id,
+    details: { role: invitation.role },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   await setActiveFamily(invitation.familyId);
@@ -155,31 +238,55 @@ export async function acceptInvitation(token: string) {
 }
 
 export async function removeMember(familyId: string, targetUserId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
-  if (session.user.id === targetUserId) {
-    throw new Error("You cannot remove yourself. Use leave family instead.");
+  const validated = RemoveMemberSchema.safeParse({ familyId, targetUserId });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const currentUserMembership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId: session.user.id } },
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "REMOVE_MEMBER",
   });
 
-  const targetUserMembership = await prisma.familyMember.findUnique({
+  if (ctx.user.id === targetUserId) {
+    throw new SecurityError("SELF_REMOVAL_FORBIDDEN", "You cannot remove yourself using this action. Please use Leave Family.", 400);
+  }
+
+  const targetMembership = await prisma.familyMember.findUnique({
     where: { familyId_userId: { familyId, userId: targetUserId } },
+    include: { user: { select: { email: true, name: true } } },
   });
 
-  if (!currentUserMembership || !targetUserMembership) {
-    throw new Error("Membership not found");
+  if (!targetMembership) {
+    throw new SecurityError("NOT_FOUND", "Target member not found in this family", 404);
   }
 
-  if (!canRemoveMember(currentUserMembership.role, targetUserMembership.role)) {
-    throw new Error("You do not have permission to remove this member");
+  // Privilege check
+  if (!canRemoveMember(ctx.membership!.role, targetMembership.role)) {
+    throw new SecurityError(
+      "PRIVILEGE_VIOLATION",
+      "You do not have sufficient permissions to remove this member",
+      403
+    );
   }
 
   await prisma.familyMember.delete({
-    where: { id: targetUserMembership.id },
+    where: { id: targetMembership.id },
+  });
+
+  await logAuditEvent({
+    action: "MEMBER_REMOVED",
+    entityType: "MEMBER",
+    familyId,
+    userId: ctx.user.id,
+    entityId: targetUserId,
+    details: {
+      removedUserName: targetMembership.user.name,
+      removedUserEmail: targetMembership.user.email,
+      role: targetMembership.role,
+    },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard/members");
@@ -187,28 +294,55 @@ export async function removeMember(familyId: string, targetUserId: string) {
 }
 
 export async function changeMemberRole(familyId: string, targetUserId: string, newRole: FamilyRole) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const validated = ChangeRoleSchema.safeParse({ familyId, targetUserId, newRole });
+  if (!validated.success) {
+    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
+  }
 
-  const currentUserMembership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId: session.user.id } },
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "CHANGE_MEMBER_ROLE",
   });
 
-  const targetUserMembership = await prisma.familyMember.findUnique({
+  const targetMembership = await prisma.familyMember.findUnique({
     where: { familyId_userId: { familyId, userId: targetUserId } },
+    include: { user: { select: { email: true, name: true } } },
   });
 
-  if (!currentUserMembership || !targetUserMembership) {
-    throw new Error("Membership not found");
+  if (!targetMembership) {
+    throw new SecurityError("NOT_FOUND", "Target member not found in this family", 404);
   }
 
-  if (!canChangeRole(currentUserMembership.role, targetUserMembership.role, newRole)) {
-    throw new Error("You do not have permission to change this role");
+  // Enforce role change hierarchy
+  if (!canChangeRole(ctx.membership!.role, targetMembership.role, validated.data.newRole)) {
+    throw new SecurityError(
+      "PRIVILEGE_VIOLATION",
+      "You do not have permission to change this member's role to the specified tier",
+      403
+    );
   }
+
+  const previousRole = targetMembership.role;
 
   await prisma.familyMember.update({
-    where: { id: targetUserMembership.id },
-    data: { role: newRole },
+    where: { id: targetMembership.id },
+    data: { role: validated.data.newRole },
+  });
+
+  await logAuditEvent({
+    action: "ROLE_CHANGED",
+    entityType: "MEMBER",
+    familyId,
+    userId: ctx.user.id,
+    entityId: targetUserId,
+    details: {
+      targetUserName: targetMembership.user.name,
+      targetUserEmail: targetMembership.user.email,
+      previousRole,
+      newRole: validated.data.newRole,
+    },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
   });
 
   revalidatePath("/dashboard/members");

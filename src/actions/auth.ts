@@ -12,28 +12,56 @@ import {
   ResetPasswordSchema,
 } from "@/lib/validations";
 import { redirect } from "next/navigation";
+import { logAuditEvent, getClientMetadata } from "@/lib/security";
 
 export async function loginAction(values: z.infer<typeof LoginSchema>) {
   const validatedFields = LoginSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid fields!" };
+    return { error: validatedFields.error.errors[0].message || "Invalid fields!" };
   }
 
   const { email, password } = validatedFields.data;
+  const { ipAddress, userAgent } = await getClientMetadata();
 
   try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+
     await signIn("credentials", {
       email,
       password,
       redirect: false,
     });
+
+    if (user) {
+      await logAuditEvent({
+        action: "AUTH_LOGIN_SUCCESS",
+        entityType: "AUTH",
+        userId: user.id,
+        entityId: user.id,
+        details: { email },
+        ipAddress,
+        userAgent,
+      });
+    }
+
     return { success: "Logged in successfully!" };
   } catch (error) {
+    await logAuditEvent({
+      action: "AUTH_LOGIN_FAILED",
+      entityType: "AUTH",
+      details: { email, reason: error instanceof AuthError ? error.type : "Unknown" },
+      ipAddress,
+      userAgent,
+    });
+
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { error: "Invalid credentials!" };
+          return { error: "Invalid email or password!" };
         default:
           return { error: "Something went wrong!" };
       }
@@ -46,22 +74,23 @@ export async function registerAction(values: z.infer<typeof RegisterSchema>) {
   const validatedFields = RegisterSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid fields!" };
+    return { error: validatedFields.error.errors[0].message || "Invalid fields!" };
   }
 
   const { email, password, name } = validatedFields.data;
+  const { ipAddress, userAgent } = await getClientMetadata();
   
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
 
   if (existingUser) {
-    return { error: "Email already in use!" };
+    return { error: "An account with this email already exists." };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       name,
       email,
@@ -69,10 +98,31 @@ export async function registerAction(values: z.infer<typeof RegisterSchema>) {
     },
   });
 
+  await logAuditEvent({
+    action: "AUTH_LOGIN_SUCCESS",
+    entityType: "AUTH",
+    userId: newUser.id,
+    entityId: newUser.id,
+    details: { event: "REGISTER", email },
+    ipAddress,
+    userAgent,
+  });
+
   return { success: "Account created! You can now log in." };
 }
 
 export async function logoutAction() {
+  const { ipAddress, userAgent } = await getClientMetadata();
+  try {
+    await logAuditEvent({
+      action: "AUTH_LOGOUT",
+      entityType: "AUTH",
+      details: { event: "LOGOUT" },
+      ipAddress,
+      userAgent,
+    });
+  } catch {}
+
   await signOut({ redirect: false });
   redirect("/login");
 }
@@ -81,10 +131,11 @@ export async function forgotPasswordAction(values: z.infer<typeof ForgotPassword
   const validatedFields = ForgotPasswordSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid email!" };
+    return { error: "Invalid email address!" };
   }
 
   const { email } = validatedFields.data;
+  const { ipAddress, userAgent } = await getClientMetadata();
   
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -95,11 +146,10 @@ export async function forgotPasswordAction(values: z.infer<typeof ForgotPassword
     return { success: "If an account exists, a reset link has been sent." };
   }
 
-  // Generate a random 64-char token
+  // Generate a cryptographically random 64-char token
   const token = Array.from(crypto.getRandomValues(new Uint8Array(48)))
     .map(b => b.toString(16).padStart(2, '0')).join('');
 
-  // Save to DB
   await prisma.passwordResetToken.create({
     data: {
       email,
@@ -108,33 +158,43 @@ export async function forgotPasswordAction(values: z.infer<typeof ForgotPassword
     },
   });
 
-  // Mock email send
+  await logAuditEvent({
+    action: "AUTH_PASSWORD_RESET_REQUESTED",
+    entityType: "AUTH",
+    userId: existingUser.id,
+    entityId: existingUser.id,
+    details: { email },
+    ipAddress,
+    userAgent,
+  });
+
   console.log(`[EMAIL_MOCK] Password reset link for ${email}: http://localhost:3000/reset-password?token=${token}`);
 
   return { success: "If an account exists, a reset link has been sent." };
 }
 
 export async function resetPasswordAction(values: z.infer<typeof ResetPasswordSchema>, token?: string) {
-  if (!token) return { error: "Missing token!" };
+  if (!token) return { error: "Missing reset token!" };
 
   const validatedFields = ResetPasswordSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid fields!" };
+    return { error: validatedFields.error.errors[0].message || "Invalid fields!" };
   }
 
   const { password } = validatedFields.data;
+  const { ipAddress, userAgent } = await getClientMetadata();
 
   const existingToken = await prisma.passwordResetToken.findUnique({
     where: { token },
   });
 
   if (!existingToken) {
-    return { error: "Invalid token!" };
+    return { error: "Invalid or expired reset token!" };
   }
 
   if (new Date() > new Date(existingToken.expires)) {
-    return { error: "Token has expired!" };
+    return { error: "Token has expired. Please request a new link." };
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -142,7 +202,7 @@ export async function resetPasswordAction(values: z.infer<typeof ResetPasswordSc
   });
 
   if (!existingUser) {
-    return { error: "Email does not exist!" };
+    return { error: "User account does not exist." };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -156,5 +216,15 @@ export async function resetPasswordAction(values: z.infer<typeof ResetPasswordSc
     where: { id: existingToken.id },
   });
 
-  return { success: "Password updated successfully!" };
+  await logAuditEvent({
+    action: "AUTH_PASSWORD_RESET_COMPLETED",
+    entityType: "AUTH",
+    userId: existingUser.id,
+    entityId: existingUser.id,
+    details: { email: existingUser.email },
+    ipAddress,
+    userAgent,
+  });
+
+  return { success: "Password updated successfully! You can now log in." };
 }

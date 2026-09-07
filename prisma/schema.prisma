@@ -39,6 +39,7 @@ model User {
   announcementReads             AnnouncementRead[]
   emergencyContactsCreated      EmergencyContact[]      @relation("emergencyContactsCreated")
   emergencyInstructionsCreated  EmergencyInstruction[]  @relation("emergencyInstructionsCreated")
+  auditLogs                     AuditLog[]
 }
 
 enum FamilyRole {
@@ -63,6 +64,7 @@ model Family {
   announcements         Announcement[]
   emergencyContacts     EmergencyContact[]
   emergencyInstructions EmergencyInstruction[]
+  auditLogs             AuditLog[]
 }
 
 model FamilyMember {
@@ -473,6 +475,68 @@ model EmergencyInstruction {
 
   family      Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy   User     @relation("emergencyInstructionsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+enum AuditLogAction {
+  AUTH_LOGIN_SUCCESS
+  AUTH_LOGIN_FAILED
+  AUTH_LOGOUT
+  AUTH_PASSWORD_RESET_REQUESTED
+  AUTH_PASSWORD_RESET_COMPLETED
+
+  FAMILY_CREATED
+  FAMILY_UPDATED
+  FAMILY_INVITATION_SENT
+  FAMILY_INVITATION_ACCEPTED
+  MEMBER_REMOVED
+  ROLE_CHANGED
+  PERMISSION_CHANGED
+
+  DOCUMENT_UPLOADED
+  DOCUMENT_VIEWED
+  DOCUMENT_DOWNLOADED
+  DOCUMENT_UPDATED
+  DOCUMENT_DELETED
+
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_STATUS_CHANGED
+  TASK_COMPLETED
+  TASK_DELETED
+  TASK_ESCALATION_CREATED
+  TASK_ESCALATION_DELETED
+  TASK_ESCALATED
+
+  ANNOUNCEMENT_CREATED
+  ANNOUNCEMENT_UPDATED
+  ANNOUNCEMENT_DELETED
+
+  EMERGENCY_CONTACT_CREATED
+  EMERGENCY_CONTACT_UPDATED
+  EMERGENCY_CONTACT_DELETED
+  EMERGENCY_INSTRUCTION_CREATED
+  EMERGENCY_INSTRUCTION_UPDATED
+  EMERGENCY_INSTRUCTION_DELETED
+}
+
+model AuditLog {
+  id          String         @id @default(cuid())
+  familyId    String?
+  userId      String?
+  action      AuditLogAction
+  entityType  String
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime       @default(now())
+
+  family      Family?        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 

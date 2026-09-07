@@ -1,28 +1,23 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import { CreateEventSchema, UpdateEventSchema } from "@/lib/validations";
 import { EventTypeType } from "@/types/calendar";
-
-async function verifyFamilyMembership(familyId: string, userId: string) {
-  const membership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId } },
-  });
-  if (!membership) throw new Error("You are not a member of this family");
-  return membership;
-}
+import {
+  authorizeAction,
+  SecurityError,
+} from "@/lib/security";
 
 export async function getEvents(start?: string, end?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
   if (!familyId) return [];
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  await authorizeAction({
+    familyId,
+    actionName: "GET_EVENTS",
+  });
 
   const where: any = { familyId };
   
@@ -49,8 +44,7 @@ export async function getEvents(start?: string, end?: string) {
 }
 
 export async function getEvent(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
   const event = await (prisma as any).event.findUnique({
     where: { id: eventId },
@@ -64,20 +58,24 @@ export async function getEvent(eventId: string) {
     },
   });
 
-  if (!event) throw new Error("Event not found");
-  await verifyFamilyMembership(event.familyId, session.user.id);
+  if (!event) throw new SecurityError("NOT_FOUND", "Event not found", 404);
+
+  await authorizeAction({
+    familyId: event.familyId,
+    actionName: "GET_EVENT",
+  });
 
   return event;
 }
 
 export async function createEvent(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
-  if (!familyId) throw new Error("No family selected");
+  if (!familyId) throw new SecurityError("NO_ACTIVE_FAMILY", "No family selected", 400);
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "CREATE_EVENT",
+  });
 
   const rawData = {
     title: formData.get("title") as string,
@@ -97,6 +95,19 @@ export async function createEvent(formData: FormData) {
 
   const { title, description, type, isAllDay, startTime, endTime, location, participantIds } = validated.data;
 
+  // Cross-tenant protection: verify participantIds belong to this family
+  let validParticipantIds: string[] = [];
+  if (participantIds && participantIds.length > 0) {
+    const verifiedMembers = await prisma.familyMember.findMany({
+      where: {
+        familyId,
+        userId: { in: participantIds },
+      },
+      select: { userId: true },
+    });
+    validParticipantIds = verifiedMembers.map((m) => m.userId);
+  }
+
   const event = await (prisma as any).event.create({
     data: {
       title,
@@ -107,12 +118,12 @@ export async function createEvent(formData: FormData) {
       endTime: new Date(endTime),
       location,
       familyId,
-      createdById: session.user.id,
-      participants: participantIds?.length
+      createdById: ctx.user.id,
+      participants: validParticipantIds.length
         ? {
-            create: participantIds.map((userId) => ({
+            create: validParticipantIds.map((userId) => ({
               userId,
-              assignedById: session.user.id!,
+              assignedById: ctx.user.id,
             })),
           }
         : undefined,
@@ -124,13 +135,22 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(eventId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
   const event = await (prisma as any).event.findUnique({ where: { id: eventId } });
-  if (!event) throw new Error("Event not found");
+  if (!event) throw new SecurityError("NOT_FOUND", "Event not found", 404);
 
-  await verifyFamilyMembership(event.familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId: event.familyId,
+    actionName: "UPDATE_EVENT",
+  });
+
+  const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
+  const isCreator = event.createdById === ctx.user.id;
+
+  if (!isManager && !isCreator) {
+    throw new SecurityError("FORBIDDEN", "Only event creator or family managers can edit events", 403);
+  }
 
   const rawData: Record<string, unknown> = {};
   const title = formData.get("title") as string | null;
@@ -172,13 +192,22 @@ export async function updateEvent(eventId: string, formData: FormData) {
   });
 
   if (data.participantIds) {
+    const verifiedMembers = await prisma.familyMember.findMany({
+      where: {
+        familyId: event.familyId,
+        userId: { in: data.participantIds },
+      },
+      select: { userId: true },
+    });
+    const validParticipantIds = verifiedMembers.map((m) => m.userId);
+
     await (prisma as any).eventParticipant.deleteMany({ where: { eventId } });
-    if (data.participantIds.length > 0) {
+    if (validParticipantIds.length > 0) {
       await (prisma as any).eventParticipant.createMany({
-        data: data.participantIds.map((userId: string) => ({
+        data: validParticipantIds.map((userId: string) => ({
           eventId,
           userId,
-          assignedById: session.user.id!,
+          assignedById: ctx.user.id,
         })),
       });
     }
@@ -189,13 +218,22 @@ export async function updateEvent(eventId: string, formData: FormData) {
 }
 
 export async function deleteEvent(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
   const event = await (prisma as any).event.findUnique({ where: { id: eventId } });
-  if (!event) throw new Error("Event not found");
+  if (!event) throw new SecurityError("NOT_FOUND", "Event not found", 404);
 
-  await verifyFamilyMembership(event.familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId: event.familyId,
+    actionName: "DELETE_EVENT",
+  });
+
+  const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
+  const isCreator = event.createdById === ctx.user.id;
+
+  if (!isManager && !isCreator) {
+    throw new SecurityError("FORBIDDEN", "Only event creator or family managers can delete events", 403);
+  }
 
   await (prisma as any).event.delete({ where: { id: eventId } });
 

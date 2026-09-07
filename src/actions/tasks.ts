@@ -1,21 +1,16 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import { CreateTaskSchema, UpdateTaskSchema } from "@/lib/validations";
-import { Prisma } from "@prisma/client";
 import { TaskStatusType, TaskPriorityType } from "@/types/task";
 import { inngest } from "@/inngest/client";
-
-async function verifyFamilyMembership(familyId: string, userId: string) {
-  const membership = await prisma.familyMember.findUnique({
-    where: { familyId_userId: { familyId, userId } },
-  });
-  if (!membership) throw new Error("You are not a member of this family");
-  return membership;
-}
+import {
+  authorizeAction,
+  logAuditEvent,
+  SecurityError,
+} from "@/lib/security";
 
 export async function getTasks(filters?: {
   search?: string;
@@ -24,13 +19,13 @@ export async function getTasks(filters?: {
   sortBy?: string;
   sortOrder?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
   if (!familyId) return [];
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  await authorizeAction({
+    familyId,
+    actionName: "GET_TASKS",
+  });
 
   const where: any = { familyId };
 
@@ -67,8 +62,7 @@ export async function getTasks(filters?: {
 }
 
 export async function getTask(taskId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
   const task = await (prisma as any).task.findUnique({
     where: { id: taskId },
@@ -82,20 +76,24 @@ export async function getTask(taskId: string) {
     },
   });
 
-  if (!task) throw new Error("Task not found");
-  await verifyFamilyMembership(task.familyId, session.user.id);
+  if (!task) throw new SecurityError("NOT_FOUND", "Task not found", 404);
+
+  await authorizeAction({
+    familyId: task.familyId,
+    actionName: "GET_TASK",
+  });
 
   return task;
 }
 
 export async function createTask(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
-  if (!familyId) throw new Error("No family selected");
+  if (!familyId) throw new SecurityError("NO_ACTIVE_FAMILY", "No active family selected", 400);
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId,
+    actionName: "CREATE_TASK",
+  });
 
   const rawData = {
     title: formData.get("title") as string,
@@ -112,6 +110,19 @@ export async function createTask(formData: FormData) {
 
   const { title, description, priority, dueDate, assigneeIds } = validated.data;
 
+  // Cross-tenant protection: ensure all assignees belong to this specific family
+  let validAssigneeIds: string[] = [];
+  if (assigneeIds && assigneeIds.length > 0) {
+    const verifiedMembers = await prisma.familyMember.findMany({
+      where: {
+        familyId,
+        userId: { in: assigneeIds },
+      },
+      select: { userId: true },
+    });
+    validAssigneeIds = verifiedMembers.map((m) => m.userId);
+  }
+
   const task = await (prisma as any).task.create({
     data: {
       title,
@@ -119,20 +130,36 @@ export async function createTask(formData: FormData) {
       priority: priority as TaskPriorityType,
       dueDate: dueDate ? new Date(dueDate) : null,
       familyId,
-      createdById: session.user.id,
-      assignments: assigneeIds?.length
+      createdById: ctx.user.id,
+      assignments: validAssigneeIds.length
         ? {
-            create: assigneeIds.map((userId: string) => ({
+            create: validAssigneeIds.map((userId: string) => ({
               userId,
-              assignedById: session.user.id!,
+              assignedById: ctx.user.id,
             })),
           }
         : undefined,
     },
   });
 
-  if (assigneeIds?.length) {
-    const events = assigneeIds.map(userId => ({
+  await logAuditEvent({
+    action: "TASK_CREATED",
+    entityType: "TASK",
+    familyId,
+    userId: ctx.user.id,
+    entityId: task.id,
+    details: {
+      title,
+      priority,
+      dueDate,
+      assigneesCount: validAssigneeIds.length,
+    },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
+  if (validAssigneeIds.length > 0) {
+    const events = validAssigneeIds.map((userId) => ({
       name: "notification/dispatch" as const,
       data: {
         userId,
@@ -142,7 +169,7 @@ export async function createTask(formData: FormData) {
         link: `/dashboard/tasks/${task.id}`,
         sendEmail: true,
         familyId,
-      }
+      },
     }));
     await inngest.send(events);
   }
@@ -151,13 +178,13 @@ export async function createTask(formData: FormData) {
     await inngest.send({
       name: "reminder/schedule",
       data: {
-        userId: session.user.id,
+        userId: ctx.user.id,
         title: "Task Due Soon",
         message: `The task "${title}" is due soon.`,
         type: "TASK_DUE",
         remindAt: new Date(new Date(dueDate).getTime() - 24 * 60 * 60 * 1000), // Remind 1 day before
         link: `/dashboard/tasks/${task.id}`,
-      }
+      },
     });
 
     await inngest.send({
@@ -165,7 +192,7 @@ export async function createTask(formData: FormData) {
       data: {
         taskId: task.id,
         dueDate: dueDate,
-      }
+      },
     });
   }
 
@@ -174,13 +201,27 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTask(taskId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("Task not found");
+  const task = await (prisma as any).task.findUnique({
+    where: { id: taskId },
+    include: { assignments: true },
+  });
+  if (!task) throw new SecurityError("NOT_FOUND", "Task not found", 404);
 
-  await verifyFamilyMembership(task.familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId: task.familyId,
+    actionName: "UPDATE_TASK",
+  });
+
+  // Check authorization: creator, assigned user, or family manager (OWNER/ADMIN)
+  const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
+  const isCreator = task.createdById === ctx.user.id;
+  const isAssignee = task.assignments.some((a: any) => a.userId === ctx.user.id);
+
+  if (!isManager && !isCreator && !isAssignee) {
+    throw new SecurityError("FORBIDDEN_TASK_EDIT", "You do not have permission to modify this task", 403);
+  }
 
   const rawData: Record<string, unknown> = {};
   const title = formData.get("title") as string | null;
@@ -210,35 +251,84 @@ export async function updateTask(taskId: string, formData: FormData) {
   if (data.priority) updateData.priority = data.priority as TaskPriorityType;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
 
+  const prevStatus = task.status;
+
   await (prisma as any).task.update({
     where: { id: taskId },
     data: updateData,
   });
 
+  // Cross-tenant protection: verify assignees belong to this family before updating
   if (data.assigneeIds) {
+    const verifiedMembers = await prisma.familyMember.findMany({
+      where: {
+        familyId: task.familyId,
+        userId: { in: data.assigneeIds },
+      },
+      select: { userId: true },
+    });
+    const validAssigneeIds = verifiedMembers.map((m) => m.userId);
+
     await (prisma as any).taskAssignment.deleteMany({ where: { taskId } });
-    if (data.assigneeIds.length > 0) {
+    if (validAssigneeIds.length > 0) {
       await (prisma as any).taskAssignment.createMany({
-        data: data.assigneeIds.map((userId) => ({
+        data: validAssigneeIds.map((userId) => ({
           taskId,
           userId,
-          assignedById: session.user.id!,
+          assignedById: ctx.user.id,
         })),
       });
     }
   }
 
+  // Audit logging: update and completion
+  if (data.status && data.status !== prevStatus) {
+    if (data.status === "COMPLETED") {
+      await logAuditEvent({
+        action: "TASK_COMPLETED",
+        entityType: "TASK",
+        familyId: task.familyId,
+        userId: ctx.user.id,
+        entityId: taskId,
+        details: { title: task.title, previousStatus: prevStatus },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+      });
+    } else {
+      await logAuditEvent({
+        action: "TASK_STATUS_CHANGED",
+        entityType: "TASK",
+        familyId: task.familyId,
+        userId: ctx.user.id,
+        entityId: taskId,
+        details: { title: task.title, previousStatus: prevStatus, newStatus: data.status },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+      });
+    }
+  } else {
+    await logAuditEvent({
+      action: "TASK_UPDATED",
+      entityType: "TASK",
+      familyId: task.familyId,
+      userId: ctx.user.id,
+      entityId: taskId,
+      details: { title: data.title || task.title, changes: Object.keys(updateData) },
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
+  }
+
   if (data.dueDate || data.status) {
-    // If dueDate or status changes, cancel old escalation schedule and create a new one
     await inngest.send({
       name: "task/escalation.cancel" as const,
-      data: { taskId }
+      data: { taskId },
     });
 
     if (data.dueDate && data.status !== "COMPLETED" && data.status !== "CANCELLED") {
       await inngest.send({
         name: "task/escalation.schedule" as const,
-        data: { taskId, dueDate: data.dueDate }
+        data: { taskId, dueDate: data.dueDate },
       });
     }
   }
@@ -249,33 +339,93 @@ export async function updateTask(taskId: string, formData: FormData) {
 }
 
 export async function deleteTask(taskId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
   const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("Task not found");
+  if (!task) throw new SecurityError("NOT_FOUND", "Task not found", 404);
 
-  await verifyFamilyMembership(task.familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId: task.familyId,
+    actionName: "DELETE_TASK",
+  });
+
+  // Only creator or Family OWNER/ADMIN can delete tasks
+  const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
+  const isCreator = task.createdById === ctx.user.id;
+
+  if (!isManager && !isCreator) {
+    throw new SecurityError("FORBIDDEN_TASK_DELETE", "Only the task creator or family managers can delete tasks", 403);
+  }
 
   await (prisma as any).task.delete({ where: { id: taskId } });
+
+  await logAuditEvent({
+    action: "TASK_DELETED",
+    entityType: "TASK",
+    familyId: task.familyId,
+    userId: ctx.user.id,
+    entityId: taskId,
+    details: { title: task.title },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
 
   revalidatePath("/dashboard/tasks");
   return { success: "Task deleted!" };
 }
 
 export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("Task not found");
+  const task = await (prisma as any).task.findUnique({
+    where: { id: taskId },
+    include: { assignments: true },
+  });
+  if (!task) throw new SecurityError("NOT_FOUND", "Task not found", 404);
 
-  await verifyFamilyMembership(task.familyId, session.user.id);
+  const ctx = await authorizeAction({
+    familyId: task.familyId,
+    actionName: "CHANGE_TASK_STATUS",
+  });
+
+  const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
+  const isCreator = task.createdById === ctx.user.id;
+  const isAssignee = task.assignments.some((a: any) => a.userId === ctx.user.id);
+
+  if (!isManager && !isCreator && !isAssignee) {
+    throw new SecurityError("FORBIDDEN_STATUS_CHANGE", "You are not authorized to change the status of this task", 403);
+  }
+
+  const prevStatus = task.status;
 
   await (prisma as any).task.update({
     where: { id: taskId },
     data: { status },
   });
+
+  if (status === "COMPLETED") {
+    await logAuditEvent({
+      action: "TASK_COMPLETED",
+      entityType: "TASK",
+      familyId: task.familyId,
+      userId: ctx.user.id,
+      entityId: taskId,
+      details: { title: task.title, previousStatus: prevStatus },
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
+  } else {
+    await logAuditEvent({
+      action: "TASK_STATUS_CHANGED",
+      entityType: "TASK",
+      familyId: task.familyId,
+      userId: ctx.user.id,
+      entityId: taskId,
+      details: { title: task.title, previousStatus: prevStatus, newStatus: status },
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
+  }
 
   revalidatePath("/dashboard/tasks");
   revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -283,13 +433,13 @@ export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
 }
 
 export async function getFamilyMembers() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
   const familyId = await getActiveFamilyId();
   if (!familyId) return [];
 
-  await verifyFamilyMembership(familyId, session.user.id);
+  await authorizeAction({
+    familyId,
+    actionName: "GET_FAMILY_MEMBERS",
+  });
 
   const members = await prisma.familyMember.findMany({
     where: { familyId },
