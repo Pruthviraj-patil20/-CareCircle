@@ -159,6 +159,14 @@ export async function createTask(formData: FormData) {
         link: `/dashboard/tasks/${task.id}`,
       }
     });
+
+    await inngest.send({
+      name: "task/escalation.schedule" as const,
+      data: {
+        taskId: task.id,
+        dueDate: dueDate,
+      }
+    });
   }
 
   revalidatePath("/dashboard/tasks");
@@ -216,6 +224,21 @@ export async function updateTask(taskId: string, formData: FormData) {
           userId,
           assignedById: session.user.id!,
         })),
+      });
+    }
+  }
+
+  if (data.dueDate || data.status) {
+    // If dueDate or status changes, cancel old escalation schedule and create a new one
+    await inngest.send({
+      name: "task/escalation.cancel" as const,
+      data: { taskId }
+    });
+
+    if (data.dueDate && data.status !== "COMPLETED" && data.status !== "CANCELLED") {
+      await inngest.send({
+        name: "task/escalation.schedule" as const,
+        data: { taskId, dueDate: data.dueDate }
       });
     }
   }

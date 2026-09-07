@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { TaskStatusType } from "@/types/task";
 import { ArrowLeft, Calendar, Edit, Trash2, User as UserIcon } from "lucide-react";
 import Link from "next/link";
+import { TaskEscalationManager } from "@/components/tasks/TaskEscalationManager";
+import { TaskAuditHistory } from "@/components/tasks/TaskAuditHistory";
 
 const statusConfig: Record<TaskStatusType, { label: string; className: string }> = {
   PENDING: { label: "Pending", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
@@ -29,9 +31,13 @@ type Member = { id: string; name: string | null; email: string | null; image: st
 export function TaskDetailClient({
   task,
   members,
+  escalationRules,
+  auditLogs,
 }: {
   task: TaskWithAssignments;
   members: Member[];
+  escalationRules: any[];
+  auditLogs: any[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -147,6 +153,15 @@ export function TaskDetailClient({
               </div>
             </CardContent>
           </Card>
+
+          <TaskEscalationManager 
+            taskId={task.id} 
+            members={members} 
+            initialRules={escalationRules} 
+            taskStatus={task.status} 
+          />
+
+          <TaskAuditHistory logs={auditLogs} />
 
           <Card>
             <CardHeader className="pb-3">

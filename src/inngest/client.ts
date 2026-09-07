@@ -27,6 +27,19 @@ type ScheduleReminderEvent = {
   };
 };
 
+type TaskEscalationEvent = {
+  data: {
+    taskId: string;
+    dueDate: string | Date;
+  };
+};
+
+type TaskEscalationCancelEvent = {
+  data: {
+    taskId: string;
+  };
+};
+
 // Initialize Inngest Client
 export const inngest = new Inngest({
   id: "carecircle-app",
@@ -34,6 +47,8 @@ export const inngest = new Inngest({
     events: {
       "notification/dispatch": {} as DispatchNotificationEvent,
       "reminder/schedule": {} as ScheduleReminderEvent,
+      "task/escalation.schedule": {} as TaskEscalationEvent,
+      "task/escalation.cancel": {} as TaskEscalationCancelEvent,
     },
   },
 });

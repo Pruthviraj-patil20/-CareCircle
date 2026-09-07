@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getTask, getFamilyMembers } from "@/actions/tasks";
 import { TaskDetailClient } from "@/components/tasks/TaskDetailClient";
+import { getEscalationRules, getAuditLogs } from "@/actions/escalations";
 
 export default async function TaskDetailPage({
   params,
@@ -21,6 +22,15 @@ export default async function TaskDetailPage({
   }
 
   const members = await getFamilyMembers();
+  const escalationRules = await getEscalationRules(taskId);
+  const auditLogs = await getAuditLogs(taskId);
 
-  return <TaskDetailClient task={task} members={members} />;
+  return (
+    <TaskDetailClient 
+      task={task} 
+      members={members} 
+      escalationRules={escalationRules as any} 
+      auditLogs={auditLogs as any} 
+    />
+  );
 }

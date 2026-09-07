@@ -172,6 +172,8 @@ model Task {
   createdBy   User             @relation("tasksCreated", fields: [createdById], references: [id], onDelete: Cascade)
   assignments TaskAssignment[]
   reminders   TaskReminder[]
+  escalations TaskEscalation[]
+  auditLogs   TaskAuditLog[]
 }
 
 model TaskAssignment {
@@ -290,4 +292,31 @@ model NotificationPreference {
   announcements Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum EscalationChannel {
+  EMAIL
+  IN_APP
+  BOTH
+}
+
+model TaskEscalation {
+  id           String            @id @default(cuid())
+  taskId       String
+  afterMinutes Int
+  notifyUserId String
+  channel      EscalationChannel @default(BOTH)
+  createdAt    DateTime          @default(now())
+
+  task         Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model TaskAuditLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
