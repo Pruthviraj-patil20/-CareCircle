@@ -1,8 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Notification } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
+
+// Bypassing IDE cache issues for newly generated Prisma types
+type Notification = {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  link?: string | null;
+  metadata?: any;
+  createdAt: Date;
+};
 import { markAsRead, markAllAsRead } from "@/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
