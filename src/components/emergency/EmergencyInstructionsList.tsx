@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +34,7 @@ import {
   Edit3,
   AlertTriangle,
   Info,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmergencyInstructionItem } from "@/types/emergency";
@@ -47,7 +47,7 @@ interface EmergencyInstructionsListProps {
   isFamilyAdmin: boolean;
 }
 
-const CATEGORY_MAP: Record<string, { label: string; icon: any; color: string }> = {
+const CATEGORY_MAP: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   MEDICAL: { label: "Medical Protocol", icon: Heart, color: "bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-800" },
   HOME_SAFETY: { label: "Home Safety", icon: Home, color: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800" },
   EVACUATION: { label: "Evacuation Plan", icon: Navigation, color: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800" },
@@ -71,8 +71,8 @@ export function EmergencyInstructionsList({
         toast.success("Protocol deleted");
         setDeleteOpen(false);
         setSelectedInstruction(null);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete protocol");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete protocol");
       }
     });
   };

@@ -63,8 +63,8 @@ export function EditInstructionDialog({
         toast.success("Protocol updated");
         onOpenChange(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update protocol");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update protocol");
       }
     });
   };
@@ -97,7 +97,7 @@ export function EditInstructionDialog({
             <Label>Category</Label>
             <Select
               value={category}
-              onValueChange={(val: any) => setCategory(val || "GENERAL")}
+              onValueChange={(val) => setCategory((val || "GENERAL") as "MEDICAL" | "HOME_SAFETY" | "EVACUATION" | "GENERAL")}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />

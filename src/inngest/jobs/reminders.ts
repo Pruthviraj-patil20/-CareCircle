@@ -33,7 +33,7 @@ export const checkOverdueTasks = inngest.createFunction(
   async ({ step }) => {
     const overdueTasks = await step.run("find-overdue-tasks", async () => {
       const now = new Date();
-      return (prisma as any).task.findMany({
+      return prisma.task.findMany({
         where: {
           dueDate: { lt: now },
           status: { notIn: ["COMPLETED", "CANCELLED", "OVERDUE"] },
@@ -46,16 +46,16 @@ export const checkOverdueTasks = inngest.createFunction(
 
     // Update statuses
     await step.run("update-task-statuses", async () => {
-      const taskIds = overdueTasks.map((t: any) => t.id);
-      await (prisma as any).task.updateMany({
+      const taskIds = overdueTasks.map((t) => t.id);
+      await prisma.task.updateMany({
         where: { id: { in: taskIds } },
         data: { status: "OVERDUE" },
       });
     });
 
     // Send notifications to assignees
-    const events = overdueTasks.flatMap((task: any) =>
-      task.assignments.map((assignment: any) => ({
+    const events = overdueTasks.flatMap((task) =>
+      task.assignments.map((assignment) => ({
         name: "notification/dispatch",
         data: {
           userId: assignment.userId,

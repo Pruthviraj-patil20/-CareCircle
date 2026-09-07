@@ -73,8 +73,8 @@ export function AnnouncementCard({
       try {
         await togglePinAnnouncement(ann.id);
         toast.success(ann.isPinned ? "Unpinned from top" : "Pinned to top of feed");
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update pin");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update pin");
       }
     });
   };
@@ -97,8 +97,8 @@ export function AnnouncementCard({
         await deleteAnnouncement(ann.id);
         toast.success("Announcement deleted");
         setDeleteOpen(false);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete announcement");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete announcement");
       }
     });
   };

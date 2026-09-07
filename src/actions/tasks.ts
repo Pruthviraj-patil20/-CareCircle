@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import { CreateTaskSchema, UpdateTaskSchema } from "@/lib/validations";
@@ -27,7 +28,7 @@ export async function getTasks(filters?: {
     actionName: "GET_TASKS",
   });
 
-  const where: any = { familyId };
+  const where: Prisma.TaskWhereInput = { familyId };
 
   if (filters?.search) {
     where.OR = [
@@ -38,7 +39,7 @@ export async function getTasks(filters?: {
   if (filters?.status) where.status = filters.status;
   if (filters?.priority) where.priority = filters.priority;
 
-  const orderBy: any = {};
+  const orderBy: Prisma.TaskOrderByWithRelationInput = {};
   const sortBy = filters?.sortBy || "createdAt";
   const sortOrder = (filters?.sortOrder || "desc") as "asc" | "desc";
 
@@ -47,7 +48,7 @@ export async function getTasks(filters?: {
   else if (sortBy === "title") orderBy.title = sortOrder;
   else orderBy.createdAt = sortOrder;
 
-  return (prisma as any).task.findMany({
+  return prisma.task.findMany({
     where,
     orderBy,
     include: {
@@ -64,7 +65,7 @@ export async function getTasks(filters?: {
 export async function getTask(taskId: string) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: {
       createdBy: { select: { id: true, name: true, email: true, image: true } },
@@ -123,7 +124,7 @@ export async function createTask(formData: FormData) {
     validAssigneeIds = verifiedMembers.map((m) => m.userId);
   }
 
-  const task = await (prisma as any).task.create({
+  const task = await prisma.task.create({
     data: {
       title,
       description,
@@ -203,7 +204,7 @@ export async function createTask(formData: FormData) {
 export async function updateTask(taskId: string, formData: FormData) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: { assignments: true },
   });
@@ -217,7 +218,7 @@ export async function updateTask(taskId: string, formData: FormData) {
   // Check authorization: creator, assigned user, or family manager (OWNER/ADMIN)
   const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
   const isCreator = task.createdById === ctx.user.id;
-  const isAssignee = task.assignments.some((a: any) => a.userId === ctx.user.id);
+  const isAssignee = task.assignments.some((a) => a.userId === ctx.user.id);
 
   if (!isManager && !isCreator && !isAssignee) {
     throw new SecurityError("FORBIDDEN_TASK_EDIT", "You do not have permission to modify this task", 403);
@@ -244,7 +245,7 @@ export async function updateTask(taskId: string, formData: FormData) {
   }
 
   const data = validated.data;
-  const updateData: any = {};
+  const updateData: Prisma.TaskUpdateInput = {};
   if (data.title) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.status) updateData.status = data.status as TaskStatusType;
@@ -253,7 +254,7 @@ export async function updateTask(taskId: string, formData: FormData) {
 
   const prevStatus = task.status;
 
-  await (prisma as any).task.update({
+  await prisma.task.update({
     where: { id: taskId },
     data: updateData,
   });
@@ -269,9 +270,9 @@ export async function updateTask(taskId: string, formData: FormData) {
     });
     const validAssigneeIds = verifiedMembers.map((m) => m.userId);
 
-    await (prisma as any).taskAssignment.deleteMany({ where: { taskId } });
+    await prisma.taskAssignment.deleteMany({ where: { taskId } });
     if (validAssigneeIds.length > 0) {
-      await (prisma as any).taskAssignment.createMany({
+      await prisma.taskAssignment.createMany({
         data: validAssigneeIds.map((userId) => ({
           taskId,
           userId,
@@ -341,7 +342,7 @@ export async function updateTask(taskId: string, formData: FormData) {
 export async function deleteTask(taskId: string) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task) throw new SecurityError("NOT_FOUND", "Task not found", 404);
 
   const ctx = await authorizeAction({
@@ -357,7 +358,7 @@ export async function deleteTask(taskId: string) {
     throw new SecurityError("FORBIDDEN_TASK_DELETE", "Only the task creator or family managers can delete tasks", 403);
   }
 
-  await (prisma as any).task.delete({ where: { id: taskId } });
+  await prisma.task.delete({ where: { id: taskId } });
 
   await logAuditEvent({
     action: "TASK_DELETED",
@@ -377,7 +378,7 @@ export async function deleteTask(taskId: string) {
 export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: { assignments: true },
   });
@@ -390,7 +391,7 @@ export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
 
   const isManager = ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
   const isCreator = task.createdById === ctx.user.id;
-  const isAssignee = task.assignments.some((a: any) => a.userId === ctx.user.id);
+  const isAssignee = task.assignments.some((a) => a.userId === ctx.user.id);
 
   if (!isManager && !isCreator && !isAssignee) {
     throw new SecurityError("FORBIDDEN_STATUS_CHANGE", "You are not authorized to change the status of this task", 403);
@@ -398,7 +399,7 @@ export async function changeTaskStatus(taskId: string, status: TaskStatusType) {
 
   const prevStatus = task.status;
 
-  await (prisma as any).task.update({
+  await prisma.task.update({
     where: { id: taskId },
     data: { status },
   });

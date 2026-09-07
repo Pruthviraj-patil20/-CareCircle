@@ -9,7 +9,7 @@ import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnou
 import { Card, CardContent } from "@/components/ui/card";
 import { Megaphone, Pin, Bell, CheckCircle2 } from "lucide-react";
 import prisma from "@/lib/db";
-import { AnnouncementPriorityType } from "@/types/announcement";
+import { AnnouncementPriorityType, AnnouncementFilterOptions } from "@/types/announcement";
 import { PageTransition, HoverCardMotion } from "@/components/ui/page-transition";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -48,7 +48,7 @@ export default async function AnnouncementsPage({
   const params = await searchParams;
   const announcements = await getAnnouncements({
     search: params.search,
-    filter: (params.filter as any) || "active",
+    filter: (params.filter as AnnouncementFilterOptions["filter"]) || "active",
     priority: (params.priority as AnnouncementPriorityType | "ALL") || "ALL",
   });
 

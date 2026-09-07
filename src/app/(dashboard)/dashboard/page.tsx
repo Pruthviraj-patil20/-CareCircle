@@ -23,28 +23,35 @@ export default async function DashboardHome() {
     documentsCount: 0,
     urgentAnnouncements: 0,
   };
-  let recentActivities: any[] = [];
+  let recentActivities: {
+    id: string;
+    title: string;
+    type: "TASK" | "EVENT" | "DOCUMENT" | "ANNOUNCEMENT";
+    updatedAt: Date;
+    authorName: string | null;
+    status?: string;
+  }[] = [];
 
   if (familyId) {
     const [family, pendingTasks, completedTasks, upcomingEvents, docs, urgentAnnouncements, recentTasks] =
       await Promise.all([
         prisma.family.findUnique({ where: { id: familyId }, select: { name: true } }),
-        (prisma as any).task.count({
+        prisma.task.count({
           where: { familyId, status: { in: ["PENDING", "IN_PROGRESS", "OVERDUE"] } },
         }),
-        (prisma as any).task.count({
+        prisma.task.count({
           where: { familyId, status: "COMPLETED" },
         }),
-        (prisma as any).event.count({
+        prisma.event.count({
           where: { familyId, startTime: { gte: new Date() } },
         }),
-        (prisma as any).document.count({
+        prisma.document.count({
           where: { familyId },
         }),
-        (prisma as any).announcement.count({
+        prisma.announcement.count({
           where: { familyId, priority: { in: ["URGENT", "IMPORTANT"] } },
         }),
-        (prisma as any).task.findMany({
+        prisma.task.findMany({
           where: { familyId },
           orderBy: { updatedAt: "desc" },
           take: 5,
@@ -62,7 +69,7 @@ export default async function DashboardHome() {
       urgentAnnouncements,
     };
 
-    recentActivities = recentTasks.map((t: any) => ({
+    recentActivities = recentTasks.map((t) => ({
       id: t.id,
       title: t.title,
       type: "TASK" as const,

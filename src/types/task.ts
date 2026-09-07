@@ -22,7 +22,8 @@ export type LooseTaskAssignment = {
   taskId: string;
   userId: string;
   assignedById: string;
-  assignedAt: Date;
+  createdAt: Date;
+  assignedAt?: Date;
 };
 
 export type TaskWithAssignments = LooseTask & {

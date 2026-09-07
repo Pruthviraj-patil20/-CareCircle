@@ -25,8 +25,6 @@ import {
 import {
   Edit3,
   Pin,
-  AlertTriangle,
-  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateAnnouncement } from "@/actions/announcements";
@@ -70,8 +68,8 @@ export function EditAnnouncementDialog({
         toast.success("Announcement updated");
         onOpenChange(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update announcement");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update announcement");
       }
     });
   };
@@ -117,7 +115,7 @@ export function EditAnnouncementDialog({
               <Label>Priority Level</Label>
               <Select
                 value={priority}
-                onValueChange={(val: any) => setPriority(val || "NORMAL")}
+                onValueChange={(val) => setPriority((val || "NORMAL") as AnnouncementPriorityType)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />

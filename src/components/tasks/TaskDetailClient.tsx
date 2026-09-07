@@ -11,10 +11,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { changeTaskStatus, deleteTask } from "@/actions/tasks";
 import { toast } from "sonner";
-import { ArrowLeft, Calendar, Edit, Trash2, User as UserIcon, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, Edit, Trash2, User as UserIcon } from "lucide-react";
 import Link from "next/link";
-import { TaskEscalationManager } from "@/components/tasks/TaskEscalationManager";
-import { TaskAuditHistory } from "@/components/tasks/TaskAuditHistory";
+import { TaskEscalationManager, type TaskEscalation } from "@/components/tasks/TaskEscalationManager";
+import { TaskAuditHistory, type TaskAuditLog } from "@/components/tasks/TaskAuditHistory";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageTransition } from "@/components/ui/page-transition";
 import { format } from "date-fns";
@@ -52,8 +52,8 @@ export function TaskDetailClient({
 }: {
   task: TaskWithAssignments;
   members: Member[];
-  escalationRules: any[];
-  auditLogs: any[];
+  escalationRules: TaskEscalation[];
+  auditLogs: TaskAuditLog[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -68,8 +68,8 @@ export function TaskDetailClient({
           toast.success(`Task status updated to ${status.toLowerCase()}`);
           router.refresh();
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update status");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update status");
       }
     });
   };
@@ -82,8 +82,8 @@ export function TaskDetailClient({
           toast.success("Task deleted successfully");
           router.push("/dashboard/tasks");
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete task");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete task");
         setShowDeleteConfirm(false);
       }
     });
@@ -252,7 +252,7 @@ export function TaskDetailClient({
               {task.assignments.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No members assigned.</p>
               ) : (
-                task.assignments.map((a: any) => (
+                task.assignments.map((a) => (
                   <div key={a.id} className="flex items-center gap-2.5">
                     <Avatar className="h-7 w-7 border border-border">
                       {a.user.image && <AvatarImage src={a.user.image} alt={a.user.name || "User"} />}

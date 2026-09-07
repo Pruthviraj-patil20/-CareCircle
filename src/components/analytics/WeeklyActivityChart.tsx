@@ -11,35 +11,43 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Calendar, TrendingUp } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { WeeklyActivityData } from "@/types/analytics";
 
 interface WeeklyActivityChartProps {
   data: WeeklyActivityData[];
 }
 
-export function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const item = data.find((d) => d.day === label);
-      return (
-        <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[140px]">
-          <p className="font-bold text-sm border-b pb-1">
-            {item ? `${item.day}, ${item.fullDate}` : label}
-          </p>
-          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span>Completed:</span>
-            <span className="font-semibold">{payload[0]?.value || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-            <span>Tasks Created:</span>
-            <span className="font-semibold">{payload[1]?.value || 0}</span>
-          </div>
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number | string; [key: string]: unknown }>;
+  label?: string | number;
+  data?: WeeklyActivityData[];
+}
+
+function CustomTooltip({ active, payload, label, data }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = data?.find((d) => d.day === label);
+    return (
+      <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[140px]">
+        <p className="font-bold text-sm border-b pb-1">
+          {item ? `${item.day}, ${item.fullDate}` : label}
+        </p>
+        <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+          <span>Completed:</span>
+          <span className="font-semibold">{payload[0]?.value ?? 0}</span>
         </div>
-      );
-    }
-    return null;
-  };
+        <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+          <span>Tasks Created:</span>
+          <span className="font-semibold">{payload[1]?.value ?? 0}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+export function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
 
   return (
     <Card className="border bg-card shadow-xs">
@@ -87,7 +95,7 @@ export function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
                 axisLine={false}
                 tickLine={false}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip data={data} />} />
               <Legend
                 wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
                 iconType="circle"

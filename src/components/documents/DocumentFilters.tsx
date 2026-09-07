@@ -19,11 +19,12 @@ import {
   Landmark,
   User,
   Files,
+  type LucideIcon,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { DocumentCategoryType } from "@/types/document";
 
-const CATEGORY_ITEMS: { value: DocumentCategoryType | "ALL"; label: string; icon: any }[] = [
+const CATEGORY_ITEMS: { value: DocumentCategoryType | "ALL"; label: string; icon: LucideIcon }[] = [
   { value: "ALL", label: "All Vault", icon: Files },
   { value: "INSURANCE", label: "Insurance", icon: Shield },
   { value: "PROPERTY", label: "Property", icon: Home },

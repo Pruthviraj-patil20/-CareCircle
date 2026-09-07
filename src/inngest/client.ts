@@ -1,5 +1,4 @@
 import { Inngest } from "inngest";
-import { EventTypeType } from "@/types/calendar";
 
 // Define generic event types that we will send to Inngest
 type DispatchNotificationEvent = {
@@ -9,7 +8,7 @@ type DispatchNotificationEvent = {
     message: string;
     type: "TASK_ASSIGNED" | "TASK_DUE" | "TASK_OVERDUE" | "TASK_COMPLETED" | "ESCALATION" | "CALENDAR_REMINDER" | "DOCUMENT_EXPIRY" | "ANNOUNCEMENT" | "FAMILY_INVITATION";
     link?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
     sendEmail?: boolean;
     familyId?: string;
   };
@@ -23,7 +22,7 @@ type ScheduleReminderEvent = {
     type: "TASK_DUE" | "CALENDAR_REMINDER";
     remindAt: Date;
     link?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   };
 };
 

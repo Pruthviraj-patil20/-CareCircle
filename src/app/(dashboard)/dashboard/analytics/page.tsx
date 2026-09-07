@@ -5,7 +5,7 @@ import { getActiveFamilyId } from "@/actions/family";
 import { getFamilyAnalyticsData } from "@/actions/analytics";
 import { AnalyticsDashboardClient } from "@/components/analytics/AnalyticsDashboardClient";
 import { AnalyticsSkeleton } from "@/components/analytics/AnalyticsSkeleton";
-import { BarChart3, HeartHandshake, Shield } from "lucide-react";
+import { BarChart3, HeartHandshake } from "lucide-react";
 import { PageTransition } from "@/components/ui/page-transition";
 
 export default async function AnalyticsPage() {

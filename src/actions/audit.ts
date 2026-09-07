@@ -7,11 +7,10 @@ import {
   AuditLogResponse,
   AuditLogItem,
   AuditLogActionType,
+  AuditLogDetails,
 } from "@/types/audit";
-import {
-  authorizeAction,
-  SecurityError,
-} from "@/lib/security";
+import { authorizeAction } from "@/lib/security";
+import { Prisma } from "@prisma/client";
 
 export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<AuditLogResponse> {
   const familyId = await getActiveFamilyId();
@@ -20,7 +19,7 @@ export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<Aud
   }
 
   // Security Gate: Only family OWNER or ADMIN can view security audit logs
-  const ctx = await authorizeAction({
+  await authorizeAction({
     familyId,
     requiredRoles: ["OWNER", "ADMIN"],
     actionName: "VIEW_AUDIT_LOGS",
@@ -30,7 +29,7 @@ export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<Aud
   const pageSize = Math.min(100, Math.max(1, filters?.limit || 20));
   const skip = (page - 1) * pageSize;
 
-  const where: any = {
+  const where: Prisma.AuditLogWhereInput = {
     familyId,
   };
 
@@ -128,8 +127,8 @@ export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<Aud
   }
 
   const [total, rawItems] = await Promise.all([
-    (prisma as any).auditLog.count({ where }),
-    (prisma as any).auditLog.findMany({
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip,
@@ -141,14 +140,14 @@ export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<Aud
     }),
   ]);
 
-  const items: AuditLogItem[] = rawItems.map((item: any) => ({
+  const items: AuditLogItem[] = rawItems.map((item) => ({
     id: item.id,
     familyId: item.familyId,
     userId: item.userId,
     action: item.action as AuditLogActionType,
     entityType: item.entityType,
     entityId: item.entityId,
-    details: item.details,
+    details: (item.details as unknown as AuditLogDetails) || null,
     ipAddress: item.ipAddress,
     userAgent: item.userAgent,
     createdAt: item.createdAt,
@@ -169,15 +168,15 @@ export async function getAuditStats() {
   const familyId = await getActiveFamilyId();
   if (!familyId) return { total: 0, security: 0, documents: 0, tasks: 0 };
 
-  const ctx = await authorizeAction({
+  await authorizeAction({
     familyId,
     requiredRoles: ["OWNER", "ADMIN"],
     actionName: "VIEW_AUDIT_STATS",
   });
 
   const [total, security, documents, tasks] = await Promise.all([
-    (prisma as any).auditLog.count({ where: { familyId } }),
-    (prisma as any).auditLog.count({
+    prisma.auditLog.count({ where: { familyId } }),
+    prisma.auditLog.count({
       where: {
         familyId,
         action: {
@@ -193,7 +192,7 @@ export async function getAuditStats() {
         },
       },
     }),
-    (prisma as any).auditLog.count({
+    prisma.auditLog.count({
       where: {
         familyId,
         action: {
@@ -208,7 +207,7 @@ export async function getAuditStats() {
         },
       },
     }),
-    (prisma as any).auditLog.count({
+    prisma.auditLog.count({
       where: {
         familyId,
         action: {

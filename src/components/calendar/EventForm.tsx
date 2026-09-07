@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { CreateEventSchema } from "@/lib/validations";
@@ -69,7 +69,7 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
     },
   });
 
-  const isAllDay = form.watch("isAllDay");
+  const isAllDay = useWatch({ control: form.control, name: "isAllDay" });
 
   const onSubmit = (values: z.infer<typeof CreateEventSchema>) => {
     startTransition(async () => {
@@ -94,7 +94,7 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
           toast.success(result.success);
           onSuccess();
         }
-      } catch (err) {
+      } catch {
         toast.error("An error occurred");
       }
     });
@@ -111,7 +111,7 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
           toast.success(result.success);
           onSuccess();
         }
-      } catch (err) {
+      } catch {
         toast.error("Failed to delete event");
       }
     });
@@ -120,8 +120,13 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="title">Title *</Label>
-        <Input id="title" disabled={isPending} {...form.register("title")} placeholder="Event title" />
+        <Label htmlFor="title">Event Title *</Label>
+        <Input 
+          id="title" 
+          disabled={isPending} 
+          placeholder="Doctor's Appointment, Birthday Party..." 
+          {...form.register("title")} 
+        />
         {form.formState.errors.title && <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>}
       </div>
 
@@ -131,7 +136,7 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
           <Select 
             disabled={isPending} 
             defaultValue={form.getValues("type")} 
-            onValueChange={(v) => form.setValue("type", v as any)}
+            onValueChange={(v) => form.setValue("type", v as z.infer<typeof CreateEventSchema>["type"])}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select type" />

@@ -6,9 +6,9 @@ export function SecuritySection() {
       <div className="container mx-auto px-4 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-6">Your family's data, fortress secured.</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-6">Your family&apos;s data, fortress secured.</h2>
             <p className="text-lg text-primary-foreground/80 mb-8">
-              We understand that you are trusting us with your most precious asset. That's why we've built CareCircle with bank-level encryption and privacy by design.
+              We understand that you are trusting us with your most precious asset. That&apos;s why we&apos;ve built CareCircle with bank-level encryption and privacy by design.
             </p>
             <div className="space-y-6">
               <div className="flex items-start gap-4">

@@ -1,7 +1,6 @@
 "use client";
 
-import { Phone, ShieldAlert, AlertTriangle, Flame, PhoneCall } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Phone, PhoneCall } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmergencyContactItem } from "@/types/emergency";
 
@@ -16,7 +15,6 @@ export function QuickServiceDialer({ customServices }: QuickServiceDialerProps) 
       title: "Emergency Services",
       subtitle: "Police, Fire, Medical",
       number: "911",
-      icon: ShieldAlert,
       color: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200 dark:shadow-none",
       border: "border-rose-300 dark:border-rose-800",
     },
@@ -24,7 +22,6 @@ export function QuickServiceDialer({ customServices }: QuickServiceDialerProps) 
       title: "Poison Control",
       subtitle: "24/7 Expert Advice",
       number: "1-800-222-1222",
-      icon: AlertTriangle,
       color: "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-200 dark:shadow-none",
       border: "border-amber-300 dark:border-amber-800",
     },
@@ -42,7 +39,6 @@ export function QuickServiceDialer({ customServices }: QuickServiceDialerProps) 
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {defaultHotlines.map((hotline) => {
-          const Icon = hotline.icon;
           return (
             <a
               key={hotline.number}

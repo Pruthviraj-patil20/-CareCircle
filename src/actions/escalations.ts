@@ -12,7 +12,7 @@ import {
 export async function getEscalationRules(taskId: string) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: { familyId: true },
   });
@@ -23,7 +23,7 @@ export async function getEscalationRules(taskId: string) {
     actionName: "GET_ESCALATION_RULES",
   });
 
-  return (prisma as any).taskEscalation.findMany({
+  return prisma.taskEscalation.findMany({
     where: { taskId },
     orderBy: { afterMinutes: "asc" },
   });
@@ -46,7 +46,7 @@ export async function addEscalationRule(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: { familyId: true, dueDate: true, createdById: true, title: true },
   });
@@ -81,7 +81,7 @@ export async function addEscalationRule(
     throw new SecurityError("CROSS_TENANT_ERROR", "The designated escalation recipient is not a member of this family", 400);
   }
 
-  const newRule = await (prisma as any).taskEscalation.create({
+  const newRule = await prisma.taskEscalation.create({
     data: {
       taskId,
       afterMinutes: validated.data.afterMinutes,
@@ -114,7 +114,7 @@ export async function addEscalationRule(
 export async function deleteEscalationRule(id: string, taskId: string) {
   if (!id || !taskId) throw new SecurityError("INVALID_ID", "ID and Task ID are required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: { familyId: true, createdById: true, title: true },
   });
@@ -132,7 +132,7 @@ export async function deleteEscalationRule(id: string, taskId: string) {
     throw new SecurityError("FORBIDDEN", "Only task creator or family managers can delete escalation rules", 403);
   }
 
-  await (prisma as any).taskEscalation.delete({
+  await prisma.taskEscalation.delete({
     where: { id },
   });
 
@@ -154,7 +154,7 @@ export async function deleteEscalationRule(id: string, taskId: string) {
 export async function getAuditLogs(taskId: string) {
   if (!taskId) throw new SecurityError("INVALID_ID", "Task ID is required", 400);
 
-  const task = await (prisma as any).task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: { familyId: true },
   });
@@ -165,7 +165,7 @@ export async function getAuditLogs(taskId: string) {
     actionName: "GET_TASK_AUDIT_LOGS",
   });
 
-  return (prisma as any).taskAuditLog.findMany({
+  return prisma.taskAuditLog.findMany({
     where: { taskId },
     orderBy: { createdAt: "desc" },
   });

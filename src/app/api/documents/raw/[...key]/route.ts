@@ -31,7 +31,7 @@ export async function GET(
   const customFileName = searchParams.get("filename");
 
   // 3. Resource existence & document lookup
-  const doc = await (prisma as any).document.findFirst({
+  const doc = await prisma.document.findFirst({
     where: { fileKey },
     include: {
       permissions: true,

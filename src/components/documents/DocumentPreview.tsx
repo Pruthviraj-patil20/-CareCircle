@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   FileText,
-  FileImage,
   FileSpreadsheet,
   File,
   Download,
@@ -33,21 +32,37 @@ export function DocumentPreview({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPreviewUrl = async () => {
+  const loadPreview = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await getDocumentPreviewUrl(documentId);
       setPreviewUrl(res.url);
-    } catch (err: any) {
-      setError(err.message || "Unable to generate preview");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unable to generate preview");
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId]);
 
   useEffect(() => {
-    fetchPreviewUrl();
+    let ignore = false;
+    getDocumentPreviewUrl(documentId)
+      .then((res) => {
+        if (!ignore) {
+          setPreviewUrl(res.url);
+          setLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Unable to generate preview");
+          setLoading(false);
+        }
+      });
+    return () => {
+      ignore = true;
+    };
   }, [documentId]);
 
   const handleDownload = async () => {
@@ -62,9 +77,9 @@ export function DocumentPreview({
       window.document.body.appendChild(a);
       a.click();
       window.document.body.removeChild(a);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss("downloading");
-      toast.error(err.message || "Failed to download document");
+      toast.error(err instanceof Error ? err.message : "Failed to download document");
     }
   };
 
@@ -95,7 +110,7 @@ export function DocumentPreview({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={fetchPreviewUrl}
+            onClick={loadPreview}
             title="Reload Preview"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -116,7 +131,7 @@ export function DocumentPreview({
           <div className="flex flex-col items-center gap-3 py-16 text-center max-w-sm">
             <AlertCircle className="h-10 w-10 text-destructive" />
             <p className="text-sm font-medium text-destructive">{error}</p>
-            <Button variant="outline" size="sm" onClick={fetchPreviewUrl}>
+            <Button variant="outline" size="sm" onClick={loadPreview}>
               Try Again
             </Button>
           </div>
@@ -132,6 +147,7 @@ export function DocumentPreview({
               />
             ) : isImage ? (
               <div className="max-h-[680px] overflow-auto flex items-center justify-center p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewUrl}
                   alt={fileName}

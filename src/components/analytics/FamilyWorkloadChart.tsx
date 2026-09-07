@@ -11,15 +11,59 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, HelpCircle } from "lucide-react";
+import { Users } from "lucide-react";
 import { MemberWorkloadData } from "@/types/analytics";
 
 interface FamilyWorkloadChartProps {
   data: MemberWorkloadData[];
 }
 
+type ChartRow = {
+  name: string;
+  fullName: string;
+  "Completed Tasks": number;
+  "Active Tasks": number;
+  "Needs a Hand": number;
+  total: number;
+};
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number | string; [key: string]: unknown }>;
+  label?: string | number;
+  chartData?: ChartRow[];
+}
+
+function CustomTooltip({ active, payload, label, chartData }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    const full = chartData?.find((c) => c.name === label);
+    return (
+      <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[160px]">
+        <p className="font-bold text-sm border-b pb-1">{full?.fullName || label}</p>
+        <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+          <span>Completed:</span>
+          <span className="font-semibold">{payload[0]?.value ?? 0}</span>
+        </div>
+        <div className="flex items-center justify-between text-sky-600 dark:text-sky-400">
+          <span>In Progress:</span>
+          <span className="font-semibold">{payload[1]?.value ?? 0}</span>
+        </div>
+        <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
+          <span>Needs a Hand:</span>
+          <span className="font-semibold">{payload[2]?.value ?? 0}</span>
+        </div>
+        <div className="border-t pt-1 flex items-center justify-between font-bold text-foreground">
+          <span>Total Tasks:</span>
+          <span>{full?.total ?? 0}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function FamilyWorkloadChart({ data }: FamilyWorkloadChartProps) {
-  const chartData = data.map((d) => ({
+  const chartData: ChartRow[] = data.map((d) => ({
     name: d.name.length > 12 ? `${d.name.slice(0, 10)}...` : d.name,
     fullName: d.name,
     "Completed Tasks": d.completed,
@@ -27,34 +71,6 @@ export function FamilyWorkloadChart({ data }: FamilyWorkloadChartProps) {
     "Needs a Hand": d.overdue,
     total: d.totalAssigned,
   }));
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const full = chartData.find((c) => c.name === label);
-      return (
-        <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[160px]">
-          <p className="font-bold text-sm border-b pb-1">{full?.fullName || label}</p>
-          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span>Completed:</span>
-            <span className="font-semibold">{payload[0]?.value || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sky-600 dark:text-sky-400">
-            <span>In Progress:</span>
-            <span className="font-semibold">{payload[1]?.value || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
-            <span>Needs a Hand:</span>
-            <span className="font-semibold">{payload[2]?.value || 0}</span>
-          </div>
-          <div className="border-t pt-1 flex items-center justify-between font-bold text-foreground">
-            <span>Total Tasks:</span>
-            <span>{full?.total || 0}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <Card className="border bg-card shadow-xs">
@@ -97,7 +113,7 @@ export function FamilyWorkloadChart({ data }: FamilyWorkloadChartProps) {
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip chartData={chartData} />} />
                 <Legend
                   wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
                   iconType="circle"

@@ -92,8 +92,8 @@ export function CreateContactDialog({
         setSensitiveInfo("");
         setIsEmergencyService(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to create contact");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to create contact");
       }
     });
   };
@@ -136,7 +136,7 @@ export function CreateContactDialog({
               <Label>Category *</Label>
               <Select
                 value={type}
-                onValueChange={(val: any) => setType(val || "PERSONAL")}
+                onValueChange={(val) => setType((val || "PERSONAL") as EmergencyContactTypeEnum)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />

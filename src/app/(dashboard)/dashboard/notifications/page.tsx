@@ -26,14 +26,14 @@ export default async function NotificationsPage() {
               Notifications
             </h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Stay updated on your family's care schedule and activity.
+              Stay updated on your family&apos;s care schedule and activity.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <NotificationList initialNotifications={notifications as any} />
+            <NotificationList initialNotifications={notifications} />
           </div>
           
           <div className="lg:col-span-1">

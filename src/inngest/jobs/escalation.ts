@@ -23,7 +23,7 @@ export const manageTaskEscalation = inngest.createFunction(
 
     // 2. Check initial status
     const initialCheck = await step.run("check-initial-status", async () => {
-      const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
+      const task = await prisma.task.findUnique({ where: { id: taskId } });
       return task?.status;
     });
 
@@ -33,7 +33,7 @@ export const manageTaskEscalation = inngest.createFunction(
 
     // 3. Fetch escalation rules for this task
     const rules = await step.run("fetch-escalation-rules", async () => {
-      return (prisma as any).taskEscalation.findMany({
+      return prisma.taskEscalation.findMany({
         where: { taskId },
         orderBy: { afterMinutes: 'asc' }
       });
@@ -56,7 +56,7 @@ export const manageTaskEscalation = inngest.createFunction(
 
       // Check task status again before notifying
       const currentStatus = await step.run(`check-status-${rule.id}`, async () => {
-        const task = await (prisma as any).task.findUnique({ where: { id: taskId } });
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         return { status: task?.status, title: task?.title, familyId: task?.familyId };
       });
 
@@ -82,7 +82,7 @@ export const manageTaskEscalation = inngest.createFunction(
 
       // Log Audit Event
       await step.run(`log-audit-${rule.id}`, async () => {
-        await (prisma as any).taskAuditLog.create({
+        await prisma.taskAuditLog.create({
           data: {
             taskId,
             action: "ESCALATED",

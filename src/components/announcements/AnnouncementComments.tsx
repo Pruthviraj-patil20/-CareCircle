@@ -44,8 +44,8 @@ export function AnnouncementComments({
           setComments((prev) => [...prev, res.comment]);
           toast.success("Comment added");
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to add comment");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to add comment");
       }
     });
   };
@@ -56,8 +56,8 @@ export function AnnouncementComments({
         await deleteAnnouncementComment(commentId);
         setComments((prev) => prev.filter((c) => c.id !== commentId));
         toast.success("Comment removed");
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete comment");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete comment");
       }
     });
   };

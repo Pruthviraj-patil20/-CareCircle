@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { FamilyRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { canManageFamily, canInviteMembers, canRemoveMember, canChangeRole } from "@/lib/permissions";
+import { canRemoveMember, canChangeRole } from "@/lib/permissions";
 import {
   authorizeAction,
   logAuditEvent,
@@ -24,7 +24,7 @@ export async function getActiveFamilyId() {
 }
 
 export async function setActiveFamily(familyId: string) {
-  const ctx = await authorizeAction({
+  await authorizeAction({
     familyId,
     actionName: "SET_ACTIVE_FAMILY",
   });

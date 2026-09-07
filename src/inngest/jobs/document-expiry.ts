@@ -14,7 +14,7 @@ export const checkDocumentExpiry = inngest.createFunction(
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       // Fetch documents expiring within the next 30 days or recently expired
-      return (prisma as any).document.findMany({
+      return prisma.document.findMany({
         where: {
           expiryDate: {
             lte: in30Days,
@@ -45,7 +45,20 @@ export const checkDocumentExpiry = inngest.createFunction(
     // Step 2: Build notifications for document uploaders and family admins
     const events = await step.run("prepare-notifications", async () => {
       const now = new Date();
-      const notificationEvents: any[] = [];
+      type ExpiryNotificationEvent = {
+        name: "notification/dispatch";
+        data: {
+          userId: string;
+          title: string;
+          message: string;
+          type: "DOCUMENT_EXPIRY";
+          link: string;
+          metadata: Record<string, unknown>;
+          sendEmail: boolean;
+          familyId: string;
+        };
+      };
+      const notificationEvents: ExpiryNotificationEvent[] = [];
 
       for (const doc of expiringDocuments) {
         if (!doc.expiryDate) continue;

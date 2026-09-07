@@ -6,7 +6,7 @@ import { TaskPriorityBadge } from "./TaskPriorityBadge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, User, Clock, CheckCircle2 } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 
 const statusConfig: Record<
@@ -93,7 +93,7 @@ export function TaskCard({ task }: { task: TaskWithAssignments }) {
                   Assigned
                 </span>
                 <div className="flex items-center -space-x-1.5">
-                  {task.assignments.slice(0, 3).map((a: any) => (
+                  {task.assignments.slice(0, 3).map((a) => (
                     <Avatar key={a.id} className="h-5 w-5 border-2 border-card ring-1 ring-border/50">
                       {a.user.image && <AvatarImage src={a.user.image} alt={a.user.name || "User"} />}
                       <AvatarFallback className="text-[8px] font-bold bg-primary/10 text-primary">

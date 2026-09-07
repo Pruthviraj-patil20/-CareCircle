@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Lock, ShieldCheck, Check, Save } from "lucide-react";
+import { Lock, ShieldCheck, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
   DocumentPermissionType,
@@ -105,8 +105,8 @@ export function DocumentPermissionsManager({
         await updateDocumentPermissions(documentId, payload);
         toast.success("Document access permissions updated successfully!");
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update permissions");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update permissions");
       }
     });
   };

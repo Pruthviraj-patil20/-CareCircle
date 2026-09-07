@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format, formatDistanceToNow, isPast, differenceInDays } from "date-fns";
+import { format, isPast, differenceInDays } from "date-fns";
 import {
   Card,
   CardContent,
@@ -37,7 +37,6 @@ import {
   Eye,
   Trash2,
   MoreVertical,
-  Calendar,
   AlertTriangle,
   Clock,
   Shield,
@@ -46,12 +45,13 @@ import {
   Car,
   Landmark,
   User as UserIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DocumentWithDetails, DocumentCategoryType } from "@/types/document";
 import { getDocumentDownloadUrl, deleteDocument } from "@/actions/documents";
 
-const CATEGORY_META: Record<DocumentCategoryType, { label: string; icon: any; color: string }> = {
+const CATEGORY_META: Record<DocumentCategoryType, { label: string; icon: LucideIcon; color: string }> = {
   INSURANCE: { label: "Insurance", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800" },
   PROPERTY: { label: "Property", icon: Home, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800" },
   EDUCATION: { label: "Education", icon: GraduationCap, color: "bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800" },
@@ -129,9 +129,9 @@ export function DocumentCard({ document: doc }: { document: DocumentWithDetails 
       window.document.body.appendChild(a);
       a.click();
       window.document.body.removeChild(a);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss("downloading");
-      toast.error(err.message || "Failed to download document");
+      toast.error(err instanceof Error ? err.message : "Failed to download document");
     }
   };
 
@@ -142,8 +142,8 @@ export function DocumentCard({ document: doc }: { document: DocumentWithDetails 
         toast.success("Document deleted permanently");
         setDeleteOpen(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete document");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete document");
       }
     });
   };

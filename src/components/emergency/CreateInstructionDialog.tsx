@@ -58,8 +58,8 @@ export function CreateInstructionDialog() {
         setContent("");
         setIsSensitive(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to save instruction");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to save instruction");
       }
     });
   };
@@ -101,7 +101,7 @@ export function CreateInstructionDialog() {
             <Label>Category</Label>
             <Select
               value={category}
-              onValueChange={(val: any) => setCategory(val || "GENERAL")}
+              onValueChange={(val) => setCategory((val || "GENERAL") as "MEDICAL" | "HOME_SAFETY" | "EVACUATION" | "GENERAL")}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />

@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import {
@@ -51,11 +52,11 @@ export async function getEmergencyCenterData(): Promise<EmergencyCenterData> {
       },
       orderBy: { role: "asc" },
     }),
-    (prisma as any).emergencyContact.findMany({
+    prisma.emergencyContact.findMany({
       where: { familyId },
       orderBy: [{ isEmergencyService: "desc" }, { createdAt: "asc" }],
     }),
-    (prisma as any).emergencyInstruction.findMany({
+    prisma.emergencyInstruction.findMany({
       where: { familyId },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
     }),
@@ -70,8 +71,9 @@ export async function getEmergencyCenterData(): Promise<EmergencyCenterData> {
   }));
 
   // Server-side masking: non-admins NEVER receive plaintext sensitiveInfo or secret instructions
-  const processedContacts: EmergencyContactItem[] = allContacts.map((c: any) => ({
+  const processedContacts: EmergencyContactItem[] = allContacts.map((c) => ({
     ...c,
+    type: c.type as EmergencyContactTypeEnum,
     sensitiveInfo: isFamilyAdmin
       ? c.sensitiveInfo
       : c.sensitiveInfo
@@ -94,8 +96,9 @@ export async function getEmergencyCenterData(): Promise<EmergencyCenterData> {
   );
 
   const processedInstructions: EmergencyInstructionItem[] = instructions.map(
-    (ins: any) => ({
+    (ins) => ({
       ...ins,
+      category: ins.category as EmergencyInstructionItem["category"],
       content:
         ins.isSensitive && !isFamilyAdmin
           ? "🔒 This instruction contains sensitive information (e.g. security codes/medical records). Only Family Admins can view."
@@ -146,7 +149,7 @@ export async function createEmergencyContact(rawData: {
   const data = validated.data;
   const sensitiveInfo = isFamilyAdmin ? (data.sensitiveInfo || null) : null;
 
-  const contact = await (prisma as any).emergencyContact.create({
+  const contact = await prisma.emergencyContact.create({
     data: {
       familyId,
       name: data.name,
@@ -200,7 +203,7 @@ export async function updateEmergencyContact(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const contact = await (prisma as any).emergencyContact.findUnique({
+  const contact = await prisma.emergencyContact.findUnique({
     where: { id },
   });
   if (!contact) throw new SecurityError("NOT_FOUND", "Emergency contact not found", 404);
@@ -217,7 +220,7 @@ export async function updateEmergencyContact(
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to edit this contact", 403);
 
   const data = validated.data;
-  const updatePayload: any = {
+  const updatePayload: Prisma.EmergencyContactUpdateInput = {
     name: data.name,
     type: data.type,
     relationship: data.relationship || null,
@@ -234,7 +237,7 @@ export async function updateEmergencyContact(
     updatePayload.sensitiveInfo = data.sensitiveInfo || null;
   }
 
-  await (prisma as any).emergencyContact.update({
+  await prisma.emergencyContact.update({
     where: { id },
     data: updatePayload,
   });
@@ -257,7 +260,7 @@ export async function updateEmergencyContact(
 export async function deleteEmergencyContact(id: string) {
   if (!id) throw new SecurityError("INVALID_ID", "Contact ID is required", 400);
 
-  const contact = await (prisma as any).emergencyContact.findUnique({
+  const contact = await prisma.emergencyContact.findUnique({
     where: { id },
   });
   if (!contact) throw new SecurityError("NOT_FOUND", "Contact not found", 404);
@@ -274,7 +277,7 @@ export async function deleteEmergencyContact(id: string) {
 
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to delete this contact", 403);
 
-  await (prisma as any).emergencyContact.delete({
+  await prisma.emergencyContact.delete({
     where: { id },
   });
 
@@ -314,7 +317,7 @@ export async function createEmergencyInstruction(rawData: {
   });
 
   const data = validated.data;
-  const instruction = await (prisma as any).emergencyInstruction.create({
+  const instruction = await prisma.emergencyInstruction.create({
     data: {
       familyId,
       title: data.title,
@@ -358,7 +361,7 @@ export async function updateEmergencyInstruction(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const instruction = await (prisma as any).emergencyInstruction.findUnique({
+  const instruction = await prisma.emergencyInstruction.findUnique({
     where: { id },
   });
   if (!instruction) throw new SecurityError("NOT_FOUND", "Instruction not found", 404);
@@ -376,7 +379,7 @@ export async function updateEmergencyInstruction(
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to edit this instruction", 403);
 
   const data = validated.data;
-  await (prisma as any).emergencyInstruction.update({
+  await prisma.emergencyInstruction.update({
     where: { id },
     data: {
       title: data.title,
@@ -405,7 +408,7 @@ export async function updateEmergencyInstruction(
 export async function deleteEmergencyInstruction(id: string) {
   if (!id) throw new SecurityError("INVALID_ID", "Instruction ID is required", 400);
 
-  const instruction = await (prisma as any).emergencyInstruction.findUnique({
+  const instruction = await prisma.emergencyInstruction.findUnique({
     where: { id },
   });
   if (!instruction) throw new SecurityError("NOT_FOUND", "Instruction not found", 404);
@@ -422,7 +425,7 @@ export async function deleteEmergencyInstruction(id: string) {
 
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to delete this instruction", 403);
 
-  await (prisma as any).emergencyInstruction.delete({
+  await prisma.emergencyInstruction.delete({
     where: { id },
   });
 

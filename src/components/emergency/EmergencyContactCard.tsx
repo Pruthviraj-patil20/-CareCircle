@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,27 +27,28 @@ import {
   Phone,
   Mail,
   MapPin,
-  Shield,
+  MoreVertical,
+  Edit3,
+  Trash2,
   Stethoscope,
+  Shield,
   HeartPulse,
   UserCheck,
+  type LucideIcon,
   Lock,
-  MoreVertical,
-  Trash2,
-  Edit3,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { EmergencyContactItem, EmergencyContactTypeEnum } from "@/types/emergency";
 import { deleteEmergencyContact } from "@/actions/emergency";
-import { EditContactDialog } from "@/components/emergency/EditContactDialog";
+import { EmergencyContactItem, EmergencyContactTypeEnum } from "@/types/emergency";
+import { EditContactDialog } from "./EditContactDialog";
 
 interface EmergencyContactCardProps {
   contact: EmergencyContactItem;
   isFamilyAdmin: boolean;
 }
 
-const TYPE_META: Record<EmergencyContactTypeEnum, { label: string; icon: any; color: string }> = {
+const TYPE_META: Record<EmergencyContactTypeEnum, { label: string; icon: LucideIcon; color: string }> = {
   FAMILY_DOCTOR: {
     label: "Family Doctor / Clinic",
     icon: Stethoscope,
@@ -93,8 +93,8 @@ export function EmergencyContactCard({
         await deleteEmergencyContact(contact.id);
         toast.success("Emergency contact removed");
         setDeleteOpen(false);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete contact");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete contact");
       }
     });
   };

@@ -1,16 +1,16 @@
 import { inngest } from "../client";
 import prisma from "@/lib/db";
 import { sendEmail } from "@/lib/resend";
-// Removed NotificationType import to bypass IDE cache issues
+import { NotificationType, type Prisma } from "@prisma/client";
 
 export const dispatchNotification = inngest.createFunction(
   { id: "dispatch-notification", name: "Dispatch Notification", triggers: [{ event: "notification/dispatch" }] },
   async ({ event, step }) => {
-    const { userId, title, message, type, link, metadata, sendEmail: shouldEmail, familyId } = event.data;
+    const { userId, title, message, type, link, metadata, sendEmail: shouldEmail } = event.data;
 
     // 1. Get user preferences and info
     const user = await step.run("get-user-preferences", async () => {
-      const u = await (prisma as any).user.findUnique({
+      const u = await prisma.user.findUnique({
         where: { id: userId },
         include: { notificationPref: true },
       });
@@ -49,14 +49,14 @@ export const dispatchNotification = inngest.createFunction(
     // 3. Create In-App Notification
     if (user.prefs.inAppEnabled) {
       await step.run("create-in-app-notification", async () => {
-        await (prisma as any).notification.create({
+        await prisma.notification.create({
           data: {
             userId,
             title,
             message,
-            type: type as any,
+            type: type as NotificationType,
             link,
-            metadata: metadata || {},
+            metadata: (metadata || {}) as Prisma.InputJsonValue,
           },
         });
       });

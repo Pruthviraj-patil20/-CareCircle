@@ -24,7 +24,7 @@ export function HeroSection() {
             Harmony in every <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">family moment.</span>
           </h1>
           <p className="mb-10 text-lg text-muted-foreground sm:text-xl">
-            Streamline tasks, synchronize schedules, and secure your family's vital information in one premium, elegant platform.
+            Streamline tasks, synchronize schedules, and secure your family&apos;s vital information in one premium, elegant platform.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/dashboard">

@@ -29,12 +29,13 @@ import {
   Landmark,
   User as UserIcon,
   Edit3,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateDocument } from "@/actions/documents";
 import { DocumentCategoryType, DocumentWithDetails } from "@/types/document";
 
-const CATEGORIES: { value: DocumentCategoryType; label: string; icon: any }[] = [
+const CATEGORIES: { value: DocumentCategoryType; label: string; icon: LucideIcon }[] = [
   { value: "INSURANCE", label: "Insurance", icon: Shield },
   { value: "PROPERTY", label: "Property & Housing", icon: Home },
   { value: "EDUCATION", label: "Education & Certificates", icon: GraduationCap },
@@ -82,8 +83,8 @@ export function EditDocumentDialog({
         toast.success("Document updated successfully");
         onOpenChange(false);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to update document");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to update document");
       }
     });
   };
@@ -117,7 +118,7 @@ export function EditDocumentDialog({
               <Label>Category *</Label>
               <Select
                 value={category}
-                onValueChange={(val: any) => setCategory(val || "PERSONAL")}
+                onValueChange={(val) => setCategory((val || "PERSONAL") as DocumentCategoryType)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />

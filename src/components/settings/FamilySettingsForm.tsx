@@ -34,8 +34,8 @@ export function FamilySettingsForm({ family, canManage, userRole }: FamilySettin
         if (res.success) {
           setFeedback({ type: "success", message: res.success });
         }
-      } catch (err: any) {
-        setFeedback({ type: "error", message: err.message || "Failed to update family circle." });
+      } catch (err: unknown) {
+        setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to update family circle." });
       }
     });
   };

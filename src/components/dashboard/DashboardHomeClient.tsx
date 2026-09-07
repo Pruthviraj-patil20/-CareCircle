@@ -7,15 +7,11 @@ import {
   AlertTriangle,
   Calendar as CalendarIcon,
   FileText,
-  Megaphone,
   PlusCircle,
   ArrowUpRight,
-  ShieldCheck,
-  CheckCircle2,
   Clock,
   Sparkles,
   PhoneCall,
-  UserCheck,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -313,7 +309,7 @@ export function DashboardHomeClient({
                 <h4 className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
                   Care Insights
                 </h4>
-                <p className="text-[11px] text-muted-foreground truncate">Workload balance & "Who needs help?"</p>
+                <p className="text-[11px] text-muted-foreground truncate">Workload balance &amp; &quot;Who needs help?&quot;</p>
               </div>
               <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </Link>

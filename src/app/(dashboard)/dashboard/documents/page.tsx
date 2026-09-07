@@ -15,7 +15,7 @@ import {
   HardDrive,
   Lock,
 } from "lucide-react";
-import { DocumentCategoryType } from "@/types/document";
+import { DocumentCategoryType, DocumentFilterOptions } from "@/types/document";
 import { PageTransition, HoverCardMotion } from "@/components/ui/page-transition";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,9 +57,9 @@ export default async function DocumentsPage({
     getDocuments({
       search: params.search,
       category: params.category as DocumentCategoryType | "ALL" | undefined,
-      expiryStatus: params.expiryStatus as any,
-      sortBy: params.sortBy as any,
-      sortOrder: (params.sortOrder as any) || "desc",
+      expiryStatus: params.expiryStatus as DocumentFilterOptions["expiryStatus"],
+      sortBy: params.sortBy as DocumentFilterOptions["sortBy"],
+      sortOrder: (params.sortOrder as DocumentFilterOptions["sortOrder"]) || "desc",
     }),
     getDocumentVaultStats(),
   ]);

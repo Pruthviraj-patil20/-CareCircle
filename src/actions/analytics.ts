@@ -53,7 +53,7 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
 
   // Fetch all tasks and members
   const [tasks, members] = await Promise.all([
-    (prisma as any).task.findMany({
+    prisma.task.findMany({
       where: { familyId },
       include: {
         assignments: {
@@ -104,11 +104,11 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
   }
 
   // 1. Summary Metrics
-  const nonCancelledTasks = tasks.filter((t: any) => t.status !== "CANCELLED");
-  const completedTasks = tasks.filter((t: any) => t.status === "COMPLETED").length;
+  const nonCancelledTasks = tasks.filter((t) => t.status !== "CANCELLED");
+  const completedTasks = tasks.filter((t) => t.status === "COMPLETED").length;
   
   // Overdue check: explicit OVERDUE status OR (dueDate < now and not completed/cancelled)
-  const overdueTasks = tasks.filter((t: any) => {
+  const overdueTasks = tasks.filter((t) => {
     if (t.status === "OVERDUE") return true;
     if (t.dueDate && isPast(new Date(t.dueDate)) && t.status !== "COMPLETED" && t.status !== "CANCELLED") {
       return true;
@@ -117,7 +117,7 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
   }).length;
 
   const pendingTasks = tasks.filter(
-    (t: any) => t.status === "PENDING" || t.status === "IN_PROGRESS"
+    (t) => t.status === "PENDING" || t.status === "IN_PROGRESS"
   ).length;
 
   const totalTasks = nonCancelledTasks.length;
@@ -126,15 +126,15 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
 
   // 2. Member Workload Data
   const memberWorkloads: MemberWorkloadData[] = members.map((m) => {
-    const assignedTasks = tasks.filter((t: any) =>
-      t.assignments.some((a: any) => a.userId === m.userId)
+    const assignedTasks = tasks.filter((t) =>
+      t.assignments.some((a) => a.userId === m.userId)
     );
 
     const mCompleted = assignedTasks.filter(
-      (t: any) => t.status === "COMPLETED"
+      (t) => t.status === "COMPLETED"
     ).length;
 
-    const mOverdue = assignedTasks.filter((t: any) => {
+    const mOverdue = assignedTasks.filter((t) => {
       if (t.status === "OVERDUE") return true;
       if (t.dueDate && isPast(new Date(t.dueDate)) && t.status !== "COMPLETED" && t.status !== "CANCELLED") {
         return true;
@@ -143,7 +143,7 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
     }).length;
 
     const mInProgress = assignedTasks.filter(
-      (t: any) => (t.status === "PENDING" || t.status === "IN_PROGRESS") && !(t.dueDate && isPast(new Date(t.dueDate)))
+      (t) => (t.status === "PENDING" || t.status === "IN_PROGRESS") && !(t.dueDate && isPast(new Date(t.dueDate)))
     ).length;
 
     return {
@@ -197,12 +197,12 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
     const dayName = format(targetDate, "EEE");
     const fullDate = format(targetDate, "MMM d");
 
-    const created = tasks.filter((t: any) =>
+    const created = tasks.filter((t) =>
       isSameDay(new Date(t.createdAt), targetDate)
     ).length;
 
     const completed = tasks.filter(
-      (t: any) =>
+      (t) =>
         t.status === "COMPLETED" && isSameDay(new Date(t.updatedAt), targetDate)
     ).length;
 
@@ -220,12 +220,12 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
     const targetMonth = subMonths(now, i);
     const monthName = format(targetMonth, "MMM");
 
-    const created = tasks.filter((t: any) =>
+    const created = tasks.filter((t) =>
       isSameMonth(new Date(t.createdAt), targetMonth)
     ).length;
 
     const completed = tasks.filter(
-      (t: any) =>
+      (t) =>
         t.status === "COMPLETED" &&
         isSameMonth(new Date(t.updatedAt), targetMonth)
     ).length;
@@ -245,7 +245,7 @@ export async function getFamilyAnalyticsData(): Promise<FamilyAnalyticsData> {
     LOW: 0,
   };
 
-  tasks.forEach((t: any) => {
+  tasks.forEach((t) => {
     if (t.status !== "CANCELLED" && priorityCounts[t.priority] !== undefined) {
       priorityCounts[t.priority]++;
     }

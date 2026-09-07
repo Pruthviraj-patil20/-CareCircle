@@ -23,8 +23,6 @@ import {
 } from "@/components/ui/select";
 import {
   Upload,
-  FileText,
-  AlertCircle,
   X,
   FileCheck,
   Shield,
@@ -33,6 +31,7 @@ import {
   Car,
   Landmark,
   User as UserIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadDocument } from "@/actions/documents";
@@ -40,7 +39,7 @@ import { DocumentCategoryType } from "@/types/document";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
-const CATEGORIES: { value: DocumentCategoryType; label: string; icon: any }[] = [
+const CATEGORIES: { value: DocumentCategoryType; label: string; icon: LucideIcon }[] = [
   { value: "INSURANCE", label: "Insurance", icon: Shield },
   { value: "PROPERTY", label: "Property & Housing", icon: Home },
   { value: "EDUCATION", label: "Education & Certificates", icon: GraduationCap },
@@ -118,8 +117,8 @@ export function UploadDocumentDialog() {
           setCategory("PERSONAL");
           router.refresh();
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to upload document");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to upload document");
       }
     });
   };
@@ -235,7 +234,7 @@ export function UploadDocumentDialog() {
               <Label className="text-sm font-medium">Category *</Label>
               <Select
                 value={category}
-                onValueChange={(val: any) => setCategory(val || "PERSONAL")}
+                onValueChange={(val) => setCategory((val || "PERSONAL") as DocumentCategoryType)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />

@@ -34,6 +34,19 @@ export type AuditLogActionType =
   | "EMERGENCY_INSTRUCTION_UPDATED"
   | "EMERGENCY_INSTRUCTION_DELETED";
 
+export interface AuditLogDetails {
+  title?: string;
+  fileName?: string;
+  name?: string;
+  invitedEmail?: string;
+  targetUserName?: string;
+  role?: string;
+  newRole?: string;
+  reason?: string;
+  disposition?: string;
+  [key: string]: unknown;
+}
+
 export interface AuditLogItem {
   id: string;
   familyId?: string | null;
@@ -41,7 +54,7 @@ export interface AuditLogItem {
   action: AuditLogActionType;
   entityType: string;
   entityId?: string | null;
-  details?: Record<string, any> | null;
+  details?: AuditLogDetails | null;
   ipAddress?: string | null;
   userAgent?: string | null;
   createdAt: Date;

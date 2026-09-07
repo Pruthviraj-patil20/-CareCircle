@@ -29,8 +29,8 @@ export default async function TaskDetailPage({
     <TaskDetailClient 
       task={task} 
       members={members} 
-      escalationRules={escalationRules as any} 
-      auditLogs={auditLogs as any} 
+      escalationRules={escalationRules} 
+      auditLogs={auditLogs} 
     />
   );
 }

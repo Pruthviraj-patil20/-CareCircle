@@ -34,7 +34,6 @@ import {
   ChevronRight,
   Eye,
   Activity,
-  Calendar,
   AlertTriangle,
   RotateCcw,
 } from "lucide-react";

@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import {
@@ -32,7 +33,7 @@ export async function getAnnouncements(
     actionName: "GET_ANNOUNCEMENTS",
   });
 
-  const where: any = { familyId };
+  const where: Prisma.AnnouncementWhereInput = { familyId };
 
   if (filters?.search) {
     where.OR = [
@@ -54,7 +55,7 @@ export async function getAnnouncements(
     where.priority = filters.priority;
   }
 
-  const announcements = await (prisma as any).announcement.findMany({
+  const announcements = await prisma.announcement.findMany({
     where,
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     include: {
@@ -76,14 +77,15 @@ export async function getAnnouncements(
   const isPrivileged =
     ctx.membership!.role === "OWNER" || ctx.membership!.role === "ADMIN";
 
-  return announcements.map((a: any) => {
+  return announcements.map((a) => {
     const isReadByCurrentUser = a.reads.some(
-      (r: any) => r.userId === ctx.user.id
+      (r) => r.userId === ctx.user.id
     );
     const canManage = isPrivileged || a.createdById === ctx.user.id;
 
     return {
       ...a,
+      attachments: (a.attachments as AttachmentItem[] | null) || null,
       isReadByCurrentUser,
       canEdit: canManage,
       canDelete: canManage,
@@ -130,7 +132,7 @@ export async function createAnnouncement(formData: FormData) {
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const announcement = await (prisma as any).announcement.create({
+  const announcement = await prisma.announcement.create({
     data: {
       familyId,
       title: validated.data.title,
@@ -209,7 +211,7 @@ export async function updateAnnouncement(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const announcement = await (prisma as any).announcement.findUnique({
+  const announcement = await prisma.announcement.findUnique({
     where: { id },
   });
   if (!announcement) throw new SecurityError("NOT_FOUND", "Announcement not found", 404);
@@ -226,7 +228,7 @@ export async function updateAnnouncement(
 
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to edit this announcement", 403);
 
-  await (prisma as any).announcement.update({
+  await prisma.announcement.update({
     where: { id },
     data: {
       title: validated.data.title,
@@ -255,7 +257,7 @@ export async function updateAnnouncement(
 export async function deleteAnnouncement(id: string) {
   if (!id) throw new SecurityError("INVALID_ID", "Announcement ID is required", 400);
 
-  const announcement = await (prisma as any).announcement.findUnique({
+  const announcement = await prisma.announcement.findUnique({
     where: { id },
   });
   if (!announcement) throw new SecurityError("NOT_FOUND", "Announcement not found", 404);
@@ -272,7 +274,7 @@ export async function deleteAnnouncement(id: string) {
 
   if (!canManage) throw new SecurityError("FORBIDDEN", "Unauthorized to delete this announcement", 403);
 
-  await (prisma as any).announcement.delete({
+  await prisma.announcement.delete({
     where: { id },
   });
 
@@ -294,7 +296,7 @@ export async function deleteAnnouncement(id: string) {
 export async function togglePinAnnouncement(id: string) {
   if (!id) throw new SecurityError("INVALID_ID", "Announcement ID is required", 400);
 
-  const announcement = await (prisma as any).announcement.findUnique({
+  const announcement = await prisma.announcement.findUnique({
     where: { id },
   });
   if (!announcement) throw new SecurityError("NOT_FOUND", "Announcement not found", 404);
@@ -311,7 +313,7 @@ export async function togglePinAnnouncement(id: string) {
 
   if (!canManage) throw new SecurityError("FORBIDDEN", "Only admins or the author can pin announcements", 403);
 
-  const updated = await (prisma as any).announcement.update({
+  const updated = await prisma.announcement.update({
     where: { id },
     data: { isPinned: !announcement.isPinned },
   });
@@ -323,7 +325,7 @@ export async function togglePinAnnouncement(id: string) {
 export async function markAnnouncementAsRead(id: string) {
   if (!id) return;
 
-  const announcement = await (prisma as any).announcement.findUnique({
+  const announcement = await prisma.announcement.findUnique({
     where: { id },
     select: { familyId: true },
   });
@@ -334,7 +336,7 @@ export async function markAnnouncementAsRead(id: string) {
     actionName: "MARK_ANNOUNCEMENT_READ",
   });
 
-  await (prisma as any).announcementRead.upsert({
+  await prisma.announcementRead.upsert({
     where: {
       announcementId_userId: {
         announcementId: id,
@@ -358,7 +360,7 @@ export async function addAnnouncementComment(announcementId: string, content: st
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const announcement = await (prisma as any).announcement.findUnique({
+  const announcement = await prisma.announcement.findUnique({
     where: { id: announcementId },
     select: { familyId: true, title: true },
   });
@@ -369,7 +371,7 @@ export async function addAnnouncementComment(announcementId: string, content: st
     actionName: "ADD_ANNOUNCEMENT_COMMENT",
   });
 
-  const comment = await (prisma as any).announcementComment.create({
+  const comment = await prisma.announcementComment.create({
     data: {
       announcementId,
       userId: ctx.user.id,
@@ -387,7 +389,7 @@ export async function addAnnouncementComment(announcementId: string, content: st
 export async function deleteAnnouncementComment(commentId: string) {
   if (!commentId) throw new SecurityError("INVALID_ID", "Comment ID is required", 400);
 
-  const comment = await (prisma as any).announcementComment.findUnique({
+  const comment = await prisma.announcementComment.findUnique({
     where: { id: commentId },
     include: {
       announcement: { select: { familyId: true, createdById: true } },
@@ -409,7 +411,7 @@ export async function deleteAnnouncementComment(commentId: string) {
 
   if (!canDelete) throw new SecurityError("FORBIDDEN", "Unauthorized to delete this comment", 403);
 
-  await (prisma as any).announcementComment.delete({
+  await prisma.announcementComment.delete({
     where: { id: commentId },
   });
 

@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import {
@@ -43,7 +44,7 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 export async function getUserDocumentPermissions(
-  doc: any,
+  doc: { createdById: string; permissions?: Array<{ userId: string; permission: string }> },
   userId: string,
   userFamilyRole: string
 ): Promise<{ canView: boolean; canDownload: boolean; canEdit: boolean; canDelete: boolean }> {
@@ -54,8 +55,8 @@ export async function getUserDocumentPermissions(
 
   // Check explicit permissions in DocumentPermission table
   const userPerms = (doc.permissions || [])
-    .filter((p: any) => p.userId === userId)
-    .map((p: any) => p.permission);
+    .filter((p) => p.userId === userId)
+    .map((p) => p.permission);
 
   // If there are explicit permissions recorded for this document, enforce them strictly
   const hasAnyExplicitRules = (doc.permissions || []).length > 0;
@@ -86,7 +87,7 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
     actionName: "GET_DOCUMENTS",
   });
 
-  const where: any = { familyId };
+  const where: Prisma.DocumentWhereInput = { familyId };
 
   if (filters?.search) {
     where.OR = [
@@ -113,7 +114,7 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
     ];
   }
 
-  const orderBy: any = {};
+  const orderBy: Prisma.DocumentOrderByWithRelationInput = {};
   const sortBy = filters?.sortBy || "createdAt";
   const sortOrder = filters?.sortOrder || "desc";
 
@@ -122,7 +123,7 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
   else if (sortBy === "expiryDate") orderBy.expiryDate = sortOrder;
   else orderBy.createdAt = sortOrder;
 
-  const docs = await (prisma as any).document.findMany({
+  const docs = await prisma.document.findMany({
     where,
     orderBy,
     include: {
@@ -152,7 +153,7 @@ export async function getDocuments(filters?: DocumentFilterOptions): Promise<Doc
 export async function getDocument(documentId: string): Promise<DocumentWithDetails> {
   if (!documentId) throw new SecurityError("INVALID_ID", "Document ID is required", 400);
 
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
     include: {
       createdBy: { select: { id: true, name: true, email: true, image: true } },
@@ -237,7 +238,7 @@ export async function uploadDocument(formData: FormData) {
   await uploadFile(uniqueKey, buffer, file.type || "application/octet-stream");
 
   // Save metadata to database
-  const doc = await (prisma as any).document.create({
+  const doc = await prisma.document.create({
     data: {
       familyId,
       title,
@@ -287,7 +288,7 @@ export async function updateDocument(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
@@ -304,7 +305,7 @@ export async function updateDocument(
     throw new SecurityError("FORBIDDEN_DOCUMENT_EDIT", "You do not have permission to edit this document", 403);
   }
 
-  await (prisma as any).document.update({
+  await prisma.document.update({
     where: { id: documentId },
     data: {
       title: validated.data.title,
@@ -331,7 +332,7 @@ export async function updateDocument(
 }
 
 export async function deleteDocument(documentId: string) {
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
@@ -352,7 +353,7 @@ export async function deleteDocument(documentId: string) {
   await deleteFile(doc.fileKey);
 
   // Delete from database
-  await (prisma as any).document.delete({
+  await prisma.document.delete({
     where: { id: documentId },
   });
 
@@ -372,7 +373,7 @@ export async function deleteDocument(documentId: string) {
 }
 
 export async function getDocumentPreviewUrl(documentId: string): Promise<{ url: string; mimeType: string }> {
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
@@ -406,7 +407,7 @@ export async function getDocumentPreviewUrl(documentId: string): Promise<{ url: 
 }
 
 export async function getDocumentDownloadUrl(documentId: string): Promise<{ url: string; fileName: string }> {
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
     include: { permissions: true },
   });
@@ -448,7 +449,7 @@ export async function updateDocumentPermissions(
     throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
   }
 
-  const doc = await (prisma as any).document.findUnique({
+  const doc = await prisma.document.findUnique({
     where: { id: documentId },
   });
 
@@ -485,14 +486,14 @@ export async function updateDocumentPermissions(
   const validMemberIds = new Set(familyMembers.map((m) => m.userId));
 
   // Remove existing permissions for the targeted users and insert updated ones
-  await (prisma as any).documentPermission.deleteMany({
+  await prisma.documentPermission.deleteMany({
     where: {
       documentId,
       userId: { in: targetUserIds },
     },
   });
 
-  const recordsToCreate: any[] = [];
+  const recordsToCreate: Prisma.DocumentPermissionCreateManyInput[] = [];
   for (const item of validated.data.userPermissions) {
     if (!validMemberIds.has(item.userId)) continue; // ignore non-family members
     for (const perm of item.permissions) {
@@ -505,7 +506,7 @@ export async function updateDocumentPermissions(
   }
 
   if (recordsToCreate.length > 0) {
-    await (prisma as any).documentPermission.createMany({
+    await prisma.documentPermission.createMany({
       data: recordsToCreate,
       skipDuplicates: true,
     });
@@ -542,26 +543,26 @@ export async function getDocumentVaultStats() {
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const [totalDocs, expiringSoon, expired, allDocs] = await Promise.all([
-    (prisma as any).document.count({ where: { familyId } }),
-    (prisma as any).document.count({
+    prisma.document.count({ where: { familyId } }),
+    prisma.document.count({
       where: {
         familyId,
         expiryDate: { gte: now, lte: in30Days },
       },
     }),
-    (prisma as any).document.count({
+    prisma.document.count({
       where: {
         familyId,
         expiryDate: { lt: now },
       },
     }),
-    (prisma as any).document.findMany({
+    prisma.document.findMany({
       where: { familyId },
       select: { fileSize: true },
     }),
   ]);
 
-  const totalBytes = allDocs.reduce((acc: number, d: any) => acc + (d.fileSize || 0), 0);
+  const totalBytes = allDocs.reduce((acc: number, d) => acc + (d.fileSize || 0), 0);
 
   return {
     totalDocs,

@@ -1,7 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import FullCalendar from "@fullcalendar/react";
+import { useState, useRef } from "react";
+import FullCalendar, {
+  type CalendarRef,
+  type DatesSetInfo,
+  type DateClickInfo,
+  type EventClickInfo,
+} from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -28,28 +33,28 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventWithParticipants | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const calendarRef = useRef<any>(null);
+  const calendarRef = useRef<CalendarRef | null>(null);
 
   const fetchEvents = async (start: Date, end: Date) => {
     try {
       const data = await getEvents(start.toISOString(), end.toISOString());
       setEvents(data as unknown as EventWithParticipants[]);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load events");
     }
   };
 
-  const handleDatesSet = (arg: any) => {
+  const handleDatesSet = (arg: DatesSetInfo) => {
     fetchEvents(arg.start, arg.end);
   };
 
-  const handleDateClick = (arg: any) => {
+  const handleDateClick = (arg: DateClickInfo) => {
     setSelectedEvent(null);
     setSelectedDate(arg.date);
     setDialogOpen(true);
   };
 
-  const handleEventClick = (arg: any) => {
+  const handleEventClick = (arg: EventClickInfo) => {
     const eventId = arg.event.id;
     const event = events.find((e) => e.id === eventId);
     if (event) {
@@ -82,7 +87,7 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
         <div className="min-w-[700px]">
           <FullCalendar
             ref={calendarRef}
-            // @ts-ignore
+            // @ts-expect-error FullCalendar plugin versions compatibility
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{

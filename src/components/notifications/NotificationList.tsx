@@ -31,7 +31,7 @@ type Notification = {
   type: string;
   isRead: boolean;
   link?: string | null;
-  metadata?: any;
+  metadata?: unknown;
   createdAt: Date;
 };
 

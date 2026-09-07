@@ -18,25 +18,32 @@ interface MonthlyTrendChartProps {
   data: MonthlyActivityData[];
 }
 
-export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[140px]">
-          <p className="font-bold text-sm border-b pb-1">{label} Summary</p>
-          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span>Completed:</span>
-            <span className="font-semibold">{payload[0]?.value || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-            <span>Created:</span>
-            <span className="font-semibold">{payload[1]?.value || 0}</span>
-          </div>
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number | string; [key: string]: unknown }>;
+  label?: string | number;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-popover text-popover-foreground text-xs p-3 rounded-xl border shadow-md space-y-1.5 min-w-[140px]">
+        <p className="font-bold text-sm border-b pb-1">{label} Summary</p>
+        <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+          <span>Completed:</span>
+          <span className="font-semibold">{payload[0]?.value ?? 0}</span>
         </div>
-      );
-    }
-    return null;
-  };
+        <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+          <span>Created:</span>
+          <span className="font-semibold">{payload[1]?.value ?? 0}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
 
   return (
     <Card className="border bg-card shadow-xs">

@@ -182,7 +182,7 @@ export async function logAuditEvent(params: {
   familyId?: string | null;
   userId?: string | null;
   entityId?: string | null;
-  details?: Record<string, any> | null;
+  details?: Record<string, unknown> | null;
   ipAddress?: string | null;
   userAgent?: string | null;
 }): Promise<void> {
@@ -194,14 +194,14 @@ export async function logAuditEvent(params: {
       userAgent = userAgent || clientMeta.userAgent;
     }
 
-    await (prisma as any).auditLog.create({
+    await prisma.auditLog.create({
       data: {
         familyId: params.familyId || null,
         userId: params.userId || null,
         action: params.action,
         entityType: params.entityType,
         entityId: params.entityId || null,
-        details: params.details || undefined,
+        details: params.details ? (params.details as unknown as import("@prisma/client").Prisma.InputJsonValue) : undefined,
         ipAddress: ipAddress || null,
         userAgent: userAgent ? userAgent.slice(0, 500) : null,
       },

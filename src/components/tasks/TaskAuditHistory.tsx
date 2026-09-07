@@ -1,7 +1,7 @@
 "use client";
 
 // Bypassing IDE cache issues for newly generated Prisma types
-type TaskAuditLog = {
+export type TaskAuditLog = {
   id: string;
   taskId: string;
   action: string;
@@ -11,7 +11,7 @@ type TaskAuditLog = {
 
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, ArrowUpRight } from "lucide-react";
+import { Activity } from "lucide-react";
 
 interface TaskAuditHistoryProps {
   logs: TaskAuditLog[];
@@ -33,7 +33,7 @@ export function TaskAuditHistory({ logs }: TaskAuditHistoryProps) {
       </CardHeader>
       <CardContent>
         <div className="relative border-l border-muted ml-3 space-y-6">
-          {logs.map((log, i) => (
+          {logs.map((log) => (
             <div key={log.id} className="relative pl-6">
               <span className="absolute -left-2 top-1 h-4 w-4 rounded-full border-2 border-background bg-primary"></span>
               <div className="flex flex-col">

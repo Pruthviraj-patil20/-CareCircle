@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getActiveFamilyId } from "@/actions/family";
 import { CreateEventSchema, UpdateEventSchema } from "@/lib/validations";
@@ -19,7 +20,7 @@ export async function getEvents(start?: string, end?: string) {
     actionName: "GET_EVENTS",
   });
 
-  const where: any = { familyId };
+  const where: Prisma.EventWhereInput = { familyId };
   
   if (start && end) {
     where.OR = [
@@ -29,7 +30,7 @@ export async function getEvents(start?: string, end?: string) {
     ];
   }
 
-  return (prisma as any).event.findMany({
+  return prisma.event.findMany({
     where,
     include: {
       createdBy: { select: { id: true, name: true, email: true, image: true } },
@@ -46,7 +47,7 @@ export async function getEvents(start?: string, end?: string) {
 export async function getEvent(eventId: string) {
   if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
-  const event = await (prisma as any).event.findUnique({
+  const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: {
       createdBy: { select: { id: true, name: true, email: true, image: true } },
@@ -108,7 +109,7 @@ export async function createEvent(formData: FormData) {
     validParticipantIds = verifiedMembers.map((m) => m.userId);
   }
 
-  const event = await (prisma as any).event.create({
+  const event = await prisma.event.create({
     data: {
       title,
       description,
@@ -137,7 +138,7 @@ export async function createEvent(formData: FormData) {
 export async function updateEvent(eventId: string, formData: FormData) {
   if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
-  const event = await (prisma as any).event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new SecurityError("NOT_FOUND", "Event not found", 404);
 
   const ctx = await authorizeAction({
@@ -177,7 +178,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   }
 
   const data = validated.data;
-  const updateData: any = {};
+  const updateData: Prisma.EventUpdateInput = {};
   if (data.title) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.type) updateData.type = data.type as EventTypeType;
@@ -186,7 +187,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   if (data.endTime) updateData.endTime = new Date(data.endTime);
   if (data.location !== undefined) updateData.location = data.location;
 
-  await (prisma as any).event.update({
+  await prisma.event.update({
     where: { id: eventId },
     data: updateData,
   });
@@ -201,9 +202,9 @@ export async function updateEvent(eventId: string, formData: FormData) {
     });
     const validParticipantIds = verifiedMembers.map((m) => m.userId);
 
-    await (prisma as any).eventParticipant.deleteMany({ where: { eventId } });
+    await prisma.eventParticipant.deleteMany({ where: { eventId } });
     if (validParticipantIds.length > 0) {
-      await (prisma as any).eventParticipant.createMany({
+      await prisma.eventParticipant.createMany({
         data: validParticipantIds.map((userId: string) => ({
           eventId,
           userId,
@@ -220,7 +221,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
 export async function deleteEvent(eventId: string) {
   if (!eventId) throw new SecurityError("INVALID_ID", "Event ID is required", 400);
 
-  const event = await (prisma as any).event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new SecurityError("NOT_FOUND", "Event not found", 404);
 
   const ctx = await authorizeAction({
@@ -235,7 +236,7 @@ export async function deleteEvent(eventId: string) {
     throw new SecurityError("FORBIDDEN", "Only event creator or family managers can delete events", 403);
   }
 
-  await (prisma as any).event.delete({ where: { id: eventId } });
+  await prisma.event.delete({ where: { id: eventId } });
 
   revalidatePath("/dashboard/calendar");
   return { success: "Event deleted!" };

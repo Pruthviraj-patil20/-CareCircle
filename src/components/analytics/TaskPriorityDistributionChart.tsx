@@ -16,29 +16,42 @@ interface TaskPriorityDistributionChartProps {
   data: PriorityDistributionData[];
 }
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload?: {
+      name: string;
+      value: number;
+      color: string;
+    };
+    [key: string]: unknown;
+  }>;
+  total?: number;
+}
+
+function CustomTooltip({ active, payload, total = 0 }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload;
+    const pct = total > 0 && item?.value ? Math.round((item.value / total) * 100) : 0;
+    return (
+      <div className="bg-popover text-popover-foreground text-xs p-2.5 rounded-xl border shadow-md space-y-1">
+        <p className="font-semibold text-xs flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item?.color }} />
+          {item?.name} Priority
+        </p>
+        <p className="text-muted-foreground text-[11px]">
+          {item?.value ?? 0} tasks ({pct}%)
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function TaskPriorityDistributionChart({
   data,
 }: TaskPriorityDistributionChartProps) {
   const total = data.reduce((acc, d) => acc + d.value, 0);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-      return (
-        <div className="bg-popover text-popover-foreground text-xs p-2.5 rounded-xl border shadow-md space-y-1">
-          <p className="font-semibold text-xs flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-            {item.name} Priority
-          </p>
-          <p className="text-muted-foreground text-[11px]">
-            {item.value} tasks ({pct}%)
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <Card className="border bg-card shadow-xs">
@@ -78,7 +91,7 @@ export function TaskPriorityDistributionChart({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip total={total} />} />
                 <Legend
                   wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
                   iconType="circle"

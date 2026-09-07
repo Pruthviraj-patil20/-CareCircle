@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getDocument, getDocumentFamilyMembers } from "@/actions/documents";
 import { DocumentDetailClient } from "@/components/documents/DocumentDetailClient";
-import prisma from "@/lib/db";
 
 export default async function DocumentDetailPage({
   params,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Plus, Heart } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 
 export function AnalyticsEmptyState() {
   return (

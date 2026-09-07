@@ -28,7 +28,6 @@ import {
   AlertTriangle,
   AlertCircle,
   Plus,
-  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createAnnouncement } from "@/actions/announcements";
@@ -78,8 +77,8 @@ export function CreateAnnouncementDialog() {
           setExpiresAt("");
           router.refresh();
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to create announcement");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to create announcement");
       }
     });
   };
@@ -138,7 +137,7 @@ export function CreateAnnouncementDialog() {
               <Label>Priority Level</Label>
               <Select
                 value={priority}
-                onValueChange={(val: any) => setPriority(val || "NORMAL")}
+                onValueChange={(val) => setPriority((val || "NORMAL") as AnnouncementPriorityType)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 // Bypassing IDE cache issues for newly generated Prisma types
-type TaskEscalation = {
+export type TaskEscalation = {
   id: string;
   taskId: string;
   afterMinutes: number;
@@ -51,12 +51,12 @@ export function TaskEscalationManager({ taskId, members, initialRules, taskStatu
       try {
         const res = await addEscalationRule(taskId, parseInt(afterMinutes), notifyUserId, channel);
         if (res.success && res.rule) {
-          setRules(prev => [...prev, res.rule].sort((a, b) => a.afterMinutes - b.afterMinutes));
+          setRules(prev => [...prev, res.rule as unknown as TaskEscalation].sort((a, b) => a.afterMinutes - b.afterMinutes));
           setIsAdding(false);
           toast.success("Escalation rule added");
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to add rule");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to add rule");
       }
     });
   };
@@ -69,7 +69,7 @@ export function TaskEscalationManager({ taskId, members, initialRules, taskStatu
           setRules(prev => prev.filter(r => r.id !== ruleId));
           toast.success("Rule removed");
         }
-      } catch (err: any) {
+      } catch {
         toast.error("Failed to delete rule");
       }
     });
@@ -124,7 +124,7 @@ export function TaskEscalationManager({ taskId, members, initialRules, taskStatu
 
               <div className="space-y-2">
                 <Label>Notify Member</Label>
-                <Select value={notifyUserId} onValueChange={(val: any) => setNotifyUserId(val || "")}>
+                <Select value={notifyUserId} onValueChange={(val) => setNotifyUserId(val || "")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
@@ -138,7 +138,7 @@ export function TaskEscalationManager({ taskId, members, initialRules, taskStatu
 
               <div className="space-y-2 sm:col-span-2">
                 <Label>Delivery Channel</Label>
-                <Select value={channel} onValueChange={(val: any) => setChannel(val)}>
+                <Select value={channel} onValueChange={(val) => setChannel(val as "EMAIL" | "IN_APP" | "BOTH")}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -32,6 +32,7 @@ export function LoginForm() {
           }
           if (data?.success) {
             toast.success(data.success);
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
             window.location.href = "/dashboard"; // Force full reload for session
           }
         })
