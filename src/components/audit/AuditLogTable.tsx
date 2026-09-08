@@ -2,7 +2,8 @@
 
 import React, { useState, useTransition } from "react";
 import { AuditLogItem, AuditLogFilters, AuditLogActionType } from "@/types/audit";
-import { getFamilyAuditLogs } from "@/actions/audit";
+import { getFamilyAuditLogs, clearFamilyAuditLogs } from "@/actions/audit";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   ShieldAlert,
@@ -36,6 +38,7 @@ import {
   Activity,
   AlertTriangle,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -60,6 +63,8 @@ export function AuditLogTable({ initialData }: AuditLogTableProps) {
   });
   const [isPending, startTransition] = useTransition();
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
+  const [clearLogsModalOpen, setClearLogsModalOpen] = useState(false);
+  const [isClearingLogs, setIsClearingLogs] = useState(false);
 
   const fetchLogs = (updatedFilters: AuditLogFilters) => {
     startTransition(async () => {
@@ -231,6 +236,17 @@ export function AuditLogTable({ initialData }: AuditLogTableProps) {
             className="h-9 px-2.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setClearLogsModalOpen(true)}
+            title="Clear all audit logs"
+            className="h-9 px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-200 dark:border-rose-900/50 text-xs gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Clear Logs</span>
           </Button>
         </div>
       </div>
@@ -438,6 +454,53 @@ export function AuditLogTable({ initialData }: AuditLogTableProps) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Logs Confirmation Dialog */}
+      <Dialog open={clearLogsModalOpen} onOpenChange={setClearLogsModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5 text-rose-600">
+              <Trash2 className="w-5 h-5" />
+              <DialogTitle className="text-base font-bold text-foreground">
+                Clear All Audit Logs
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground mt-1.5">
+              Are you sure you want to permanently clear all security audit logs for this family circle? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setClearLogsModalOpen(false)}
+              disabled={isClearingLogs}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isClearingLogs}
+              onClick={async () => {
+                try {
+                  setIsClearingLogs(true);
+                  await clearFamilyAuditLogs();
+                  setData({ items: [], total: 0, page: 1, pageSize: 15, totalPages: 0 });
+                  toast.success("Audit logs cleared successfully.");
+                  setClearLogsModalOpen(false);
+                } catch (err: unknown) {
+                  toast.error(err instanceof Error ? err.message : "Failed to clear audit logs");
+                } finally {
+                  setIsClearingLogs(false);
+                }
+              }}
+            >
+              {isClearingLogs ? "Clearing..." : "Clear All Logs"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

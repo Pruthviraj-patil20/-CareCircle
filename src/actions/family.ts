@@ -383,3 +383,100 @@ export async function changeMemberRole(familyId: string, targetUserId: string, n
   revalidatePath("/dashboard/members");
   return { success: "Role updated!" };
 }
+
+export async function clearAllFamilyData(
+  familyId: string,
+  options?: {
+    clearTasks?: boolean;
+    clearEvents?: boolean;
+    clearDocuments?: boolean;
+    clearAnnouncements?: boolean;
+    clearEmergency?: boolean;
+    clearNotifications?: boolean;
+    clearAuditLogs?: boolean;
+  }
+) {
+  const ctx = await authorizeAction({
+    familyId,
+    requiredRoles: ["OWNER", "ADMIN"],
+    actionName: "CLEAR_FAMILY_DATA",
+  });
+
+  const clearAll = !options || Object.keys(options).length === 0;
+  const doTasks = clearAll || options?.clearTasks !== false;
+  const doEvents = clearAll || options?.clearEvents !== false;
+  const doDocs = clearAll || options?.clearDocuments !== false;
+  const doAnnouncements = clearAll || options?.clearAnnouncements !== false;
+  const doEmergency = clearAll || options?.clearEmergency !== false;
+  const doNotifications = clearAll || options?.clearNotifications !== false;
+  const doAuditLogs = options?.clearAuditLogs === true;
+
+  await prisma.$transaction(async (tx) => {
+    if (doTasks) {
+      await tx.task.deleteMany({ where: { familyId } });
+    }
+    if (doEvents) {
+      await tx.event.deleteMany({ where: { familyId } });
+    }
+    if (doDocs) {
+      await tx.document.deleteMany({ where: { familyId } });
+    }
+    if (doAnnouncements) {
+      await tx.announcement.deleteMany({ where: { familyId } });
+    }
+    if (doEmergency) {
+      await tx.emergencyContact.deleteMany({ where: { familyId } });
+      await tx.emergencyInstruction.deleteMany({ where: { familyId } });
+    }
+    if (doNotifications) {
+      const members = await tx.familyMember.findMany({
+        where: { familyId },
+        select: { userId: true },
+      });
+      const memberIds = members.map((m) => m.userId);
+      if (memberIds.length > 0) {
+        await tx.notification.deleteMany({
+          where: { userId: { in: memberIds } },
+        });
+      }
+    }
+    if (doAuditLogs) {
+      await tx.auditLog.deleteMany({ where: { familyId } });
+    }
+  });
+
+  if (!doAuditLogs) {
+    await logAuditEvent({
+      action: "FAMILY_UPDATED",
+      entityType: "FAMILY",
+      familyId,
+      userId: ctx.user.id,
+      entityId: familyId,
+      details: {
+        action: "CLEAR_ALL_DATA",
+        clearedTasks: doTasks,
+        clearedEvents: doEvents,
+        clearedDocuments: doDocs,
+        clearedAnnouncements: doAnnouncements,
+        clearedEmergency: doEmergency,
+        clearedNotifications: doNotifications,
+      },
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/documents");
+  revalidatePath("/dashboard/announcements");
+  revalidatePath("/dashboard/emergency");
+  revalidatePath("/dashboard/notifications");
+  revalidatePath("/dashboard/analytics");
+  revalidatePath("/dashboard/settings");
+
+  return { success: "All circle data has been reset to zero successfully!" };
+}
+

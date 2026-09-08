@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { FamilySettingsForm } from "./FamilySettingsForm";
+import { ClearAllDataDialog } from "./ClearAllDataDialog";
 import { AuditLogTable } from "@/components/audit/AuditLogTable";
 import { AuditLogItem } from "@/types/audit";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,8 @@ import {
   Lock,
   Layers,
   History,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -72,41 +75,62 @@ export function SettingsView({
           </p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex p-1 bg-muted/60 dark:bg-muted/30 rounded-xl border border-border/50 self-start sm:self-auto">
-          <button
-            onClick={() => setActiveTab("security")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
-              activeTab === "security"
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
-          >
-            <History className="w-4 h-4 text-primary" />
-            Audit Logs & Security
-          </button>
-          <button
-            onClick={() => setActiveTab("family")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
-              activeTab === "family"
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Family Profile
-          </button>
-          <button
-            onClick={() => setActiveTab("account")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
-              activeTab === "account"
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
-          >
-            <KeyRound className="w-4 h-4" />
-            Account
-          </button>
+        {/* Actions & Tab Navigation */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Tab Navigation */}
+          <div className="flex p-1 bg-muted/60 dark:bg-muted/30 rounded-xl border border-border/50">
+            <button
+              onClick={() => setActiveTab("security")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
+                activeTab === "security"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+              }`}
+            >
+              <History className="w-4 h-4 text-primary" />
+              Audit Logs & Security
+            </button>
+            <button
+              onClick={() => setActiveTab("family")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
+                activeTab === "family"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Family Profile
+            </button>
+            <button
+              onClick={() => setActiveTab("account")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
+                activeTab === "account"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+              }`}
+            >
+              <KeyRound className="w-4 h-4" />
+              Account
+            </button>
+          </div>
+
+          {/* Quick Clear All Button in Header for Admins */}
+          {isFamilyAdmin && (
+            <ClearAllDataDialog
+              familyId={family.id}
+              familyName={family.name}
+              trigger={
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                  title="Clear all family circle data"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear All</span>
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -202,7 +226,45 @@ export function SettingsView({
 
       {/* Family Profile Tab */}
       {activeTab === "family" && (
-        <FamilySettingsForm family={family} canManage={isFamilyAdmin} userRole={userFamilyRole} />
+        <div className="space-y-6">
+          <FamilySettingsForm family={family} canManage={isFamilyAdmin} userRole={userFamilyRole} />
+
+          {/* Danger Zone: Clear All Circle Data */}
+          {isFamilyAdmin && (
+            <Card className="border border-rose-500/30 bg-rose-500/5 shadow-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                      <AlertTriangle className="w-5 h-5" />
+                      Danger Zone
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Destructive operations for {family.name}. These actions permanently remove records.
+                    </CardDescription>
+                  </div>
+                  <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                    Irreversible
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-rose-500/20">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      Clear All Circle Data & Activity
+                    </h4>
+                    <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+                      Permanently delete all tasks, calendar events, documents, announcements, and emergency records, resetting all dashboard statistics to zero. Member accounts, credentials, and roles are preserved.
+                    </p>
+                  </div>
+                  <ClearAllDataDialog familyId={family.id} familyName={family.name} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Account Tab */}

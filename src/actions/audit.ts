@@ -11,6 +11,7 @@ import {
 } from "@/types/audit";
 import { authorizeAction } from "@/lib/security";
 import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
 export async function getFamilyAuditLogs(filters?: AuditLogFilters): Promise<AuditLogResponse> {
   const familyId = await getActiveFamilyId();
@@ -225,3 +226,24 @@ export async function getAuditStats() {
 
   return { total, security, documents, tasks };
 }
+
+export async function clearFamilyAuditLogs(familyId?: string) {
+  const targetFamilyId = familyId || (await getActiveFamilyId());
+  if (!targetFamilyId) {
+    throw new Error("No active family circle found");
+  }
+
+  await authorizeAction({
+    familyId: targetFamilyId,
+    requiredRoles: ["OWNER", "ADMIN"],
+    actionName: "CLEAR_AUDIT_LOGS",
+  });
+
+  await prisma.auditLog.deleteMany({
+    where: { familyId: targetFamilyId },
+  });
+
+  revalidatePath("/dashboard/settings");
+  return { success: "Audit logs cleared successfully." };
+}
+
