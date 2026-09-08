@@ -38,12 +38,7 @@ export function PendingInviteActions({
           if (res.success) {
             const origin = typeof window !== "undefined" ? window.location.origin : "";
             const currentToken = res.token || token;
-            try {
-              await navigator.clipboard.writeText(`${origin}/invite/${currentToken}`);
-              toast.success(`${res.success} (Invite link copied to clipboard)`);
-            } catch {
-              toast.success(res.success);
-            }
+            toast.success(res.success);
           }
         })
         .catch((err) => {

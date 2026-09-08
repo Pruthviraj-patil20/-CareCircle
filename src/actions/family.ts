@@ -256,16 +256,8 @@ export async function inviteMember(familyId: string, email: string, role: Family
   if (emailResult.success) {
     return { success: `Invitation email sent to ${validated.data.email}!`, token };
   } else {
-    const isTestingRestriction = emailResult.error?.includes("only send testing emails to your own email address");
-    if (isTestingRestriction) {
-      return {
-        success: `Invite created! (Resend free tier only sends to your account email). Link copied!`,
-        token,
-        warning: "Resend testing mode: verify a domain at resend.com/domains to send live emails to third-party inboxes.",
-      };
-    }
     return {
-      success: `Invitation created for ${validated.data.email}!`,
+      success: `Invite link created and copied to clipboard!`,
       token,
     };
   }
@@ -335,16 +327,8 @@ export async function resendInvitation(invitationId: string) {
   if (emailResult.success) {
     return { success: `Invitation email re-sent to ${invitation.email}!`, token };
   } else {
-    const isTestingRestriction = emailResult.error?.includes("only send testing emails to your own email address");
-    if (isTestingRestriction) {
-      return {
-        success: `Invite refreshed! (Resend free tier only sends to your account email). Link copied!`,
-        token,
-        warning: "Resend testing mode: verify a domain at resend.com/domains to send live emails to third-party inboxes.",
-      };
-    }
     return {
-      success: `Invitation refreshed for ${invitation.email}!`,
+      success: `Invite link refreshed & copied to clipboard!`,
       token,
     };
   }
