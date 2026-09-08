@@ -159,42 +159,46 @@ export async function createTask(formData: FormData) {
     userAgent: ctx.userAgent,
   });
 
-  if (validAssigneeIds.length > 0) {
-    const events = validAssigneeIds.map((userId) => ({
-      name: "notification/dispatch" as const,
-      data: {
-        userId,
-        title: "New Task Assigned",
-        message: `You have been assigned to the task: ${title}`,
-        type: "TASK_ASSIGNED" as const,
-        link: `/dashboard/tasks/${task.id}`,
-        sendEmail: true,
-        familyId,
-      },
-    }));
-    await inngest.send(events);
-  }
+  try {
+    if (validAssigneeIds.length > 0) {
+      const events = validAssigneeIds.map((userId) => ({
+        name: "notification/dispatch" as const,
+        data: {
+          userId,
+          title: "New Task Assigned",
+          message: `You have been assigned to the task: ${title}`,
+          type: "TASK_ASSIGNED" as const,
+          link: `/dashboard/tasks/${task.id}`,
+          sendEmail: true,
+          familyId,
+        },
+      }));
+      await inngest.send(events);
+    }
 
-  if (dueDate) {
-    await inngest.send({
-      name: "reminder/schedule",
-      data: {
-        userId: ctx.user.id,
-        title: "Task Due Soon",
-        message: `The task "${title}" is due soon.`,
-        type: "TASK_DUE",
-        remindAt: new Date(new Date(dueDate).getTime() - 24 * 60 * 60 * 1000), // Remind 1 day before
-        link: `/dashboard/tasks/${task.id}`,
-      },
-    });
+    if (dueDate) {
+      await inngest.send({
+        name: "reminder/schedule",
+        data: {
+          userId: ctx.user.id,
+          title: "Task Due Soon",
+          message: `The task "${title}" is due soon.`,
+          type: "TASK_DUE",
+          remindAt: new Date(new Date(dueDate).getTime() - 24 * 60 * 60 * 1000), // Remind 1 day before
+          link: `/dashboard/tasks/${task.id}`,
+        },
+      });
 
-    await inngest.send({
-      name: "task/escalation.schedule" as const,
-      data: {
-        taskId: task.id,
-        dueDate: dueDate,
-      },
-    });
+      await inngest.send({
+        name: "task/escalation.schedule" as const,
+        data: {
+          taskId: task.id,
+          dueDate: dueDate,
+        },
+      });
+    }
+  } catch (inngestErr) {
+    console.warn("[Inngest] Background task notification/reminder delivery bypassed:", inngestErr);
   }
 
   revalidatePath("/dashboard/tasks");
@@ -321,16 +325,20 @@ export async function updateTask(taskId: string, formData: FormData) {
   }
 
   if (data.dueDate || data.status) {
-    await inngest.send({
-      name: "task/escalation.cancel" as const,
-      data: { taskId },
-    });
-
-    if (data.dueDate && data.status !== "COMPLETED" && data.status !== "CANCELLED") {
+    try {
       await inngest.send({
-        name: "task/escalation.schedule" as const,
-        data: { taskId, dueDate: data.dueDate },
+        name: "task/escalation.cancel" as const,
+        data: { taskId },
       });
+
+      if (data.dueDate && data.status !== "COMPLETED" && data.status !== "CANCELLED") {
+        await inngest.send({
+          name: "task/escalation.schedule" as const,
+          data: { taskId, dueDate: data.dueDate },
+        });
+      }
+    } catch (inngestErr) {
+      console.warn("[Inngest] Task escalation event dispatch bypassed:", inngestErr);
     }
   }
 

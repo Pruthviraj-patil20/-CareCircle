@@ -186,7 +186,11 @@ export async function createAnnouncement(formData: FormData) {
     }));
 
     if (events.length > 0) {
-      await inngest.send(events);
+      try {
+        await inngest.send(events);
+      } catch (inngestErr) {
+        console.warn("[Inngest] Announcement notification delivery bypassed:", inngestErr);
+      }
     }
   }
 
