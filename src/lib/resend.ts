@@ -30,12 +30,10 @@ export async function sendEmail({
       console.log(`[Email Sent] Delivered to ${to}: ${subject} (ID: ${data?.id})`);
       return { success: true };
     } else {
-      console.warn(
-        `[Email Not Sent] RESEND_API_KEY is not configured in .env.local. Intended recipient: ${to}`
-      );
+      console.log(`[Email Dev Mode] Delivery bypassed (RESEND_API_KEY not configured). Recipient: ${to}`);
       return {
         success: false,
-        error: "RESEND_API_KEY is not configured in .env.local",
+        error: "RESEND_API_KEY_NOT_CONFIGURED",
       };
     }
   } catch (error) {

@@ -254,10 +254,11 @@ export async function inviteMember(familyId: string, email: string, role: Family
   revalidatePath("/dashboard/members");
 
   if (emailResult.success) {
-    return { success: `Invitation email sent to ${validated.data.email}!` };
+    return { success: `Invitation email sent to ${validated.data.email}!`, token };
   } else {
     return {
-      success: `Invitation created for ${validated.data.email}! Note: ${emailResult.error}`,
+      success: `Invitation created for ${validated.data.email}!`,
+      token,
     };
   }
 }
@@ -324,10 +325,11 @@ export async function resendInvitation(invitationId: string) {
   revalidatePath("/dashboard/members");
 
   if (emailResult.success) {
-    return { success: `Invitation email re-sent to ${invitation.email}!` };
+    return { success: `Invitation email re-sent to ${invitation.email}!`, token };
   } else {
     return {
-      success: `Invitation refreshed! Note: ${emailResult.error}`,
+      success: `Invitation refreshed for ${invitation.email}!`,
+      token,
     };
   }
 }
