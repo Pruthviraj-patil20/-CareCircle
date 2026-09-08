@@ -211,6 +211,67 @@ export async function inviteMember(familyId: string, email: string, role: Family
   return { success: "Invitation sent!" };
 }
 
+export async function getOrCreateShareInviteLink(familyId: string, role: FamilyRole = "MEMBER") {
+  const ctx = await authorizeAction({
+    familyId,
+    requiredRoles: ["OWNER", "ADMIN"],
+    actionName: "INVITE_MEMBER",
+  });
+
+  if ((role as string) === "OWNER") {
+    throw new SecurityError("PRIVILEGE_ESCALATION", "Cannot create invite link as OWNER.", 403);
+  }
+  if (ctx.membership?.role === "ADMIN" && role === "ADMIN") {
+    throw new SecurityError("PRIVILEGE_ESCALATION", "Only the family Owner can invite administrators.", 403);
+  }
+
+  const shareEmail = `link-invite-${role.toLowerCase()}@carecircle.internal`;
+
+  const existing = await prisma.familyInvitation.findUnique({
+    where: {
+      familyId_email: { familyId, email: shareEmail },
+    },
+  });
+
+  if (existing && existing.expires > new Date()) {
+    return { token: existing.token };
+  }
+
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(36)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const invitation = await prisma.familyInvitation.upsert({
+    where: {
+      familyId_email: { familyId, email: shareEmail },
+    },
+    update: {
+      role,
+      token,
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+    },
+    create: {
+      familyId,
+      email: shareEmail,
+      role,
+      token,
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+    },
+  });
+
+  await logAuditEvent({
+    action: "FAMILY_INVITATION_SENT",
+    entityType: "MEMBER",
+    familyId,
+    userId: ctx.user.id,
+    details: { invitedEmail: shareEmail, role, isShareLink: true },
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+
+  return { token: invitation.token };
+}
+
 export async function acceptInvitation(token: string) {
   if (!token || typeof token !== "string") {
     throw new SecurityError("INVALID_TOKEN", "Invitation token is required", 400);
@@ -227,8 +288,10 @@ export async function acceptInvitation(token: string) {
   if (!invitation) throw new SecurityError("INVALID_INVITATION", "Invalid or expired invitation link", 404);
   if (new Date() > invitation.expires) throw new SecurityError("EXPIRED_INVITATION", "This invitation has expired", 400);
   
-  // Strictly enforce that the logged in user's email matches the invite email
-  if (invitation.email.toLowerCase() !== ctx.user.email.toLowerCase()) {
+  const isShareLink = invitation.email.endsWith("@carecircle.internal");
+
+  // Strictly enforce that the logged in user's email matches the invite email for direct email invites
+  if (!isShareLink && invitation.email.toLowerCase() !== ctx.user.email.toLowerCase()) {
     throw new SecurityError("EMAIL_MISMATCH", "This invitation was sent to a different email address", 403);
   }
 
@@ -252,10 +315,12 @@ export async function acceptInvitation(token: string) {
     });
   }
 
-  // Delete consumed invitation
-  await prisma.familyInvitation.delete({
-    where: { id: invitation.id },
-  });
+  // Delete consumed invitation only if not a shareable group link
+  if (!isShareLink) {
+    await prisma.familyInvitation.delete({
+      where: { id: invitation.id },
+    });
+  }
 
   await logAuditEvent({
     action: "FAMILY_INVITATION_ACCEPTED",
@@ -263,7 +328,7 @@ export async function acceptInvitation(token: string) {
     familyId: invitation.familyId,
     userId: ctx.user.id,
     entityId: ctx.user.id,
-    details: { role: invitation.role },
+    details: { role: invitation.role, isShareLink },
     ipAddress: ctx.ipAddress,
     userAgent: ctx.userAgent,
   });

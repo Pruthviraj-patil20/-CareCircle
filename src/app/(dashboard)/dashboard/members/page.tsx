@@ -121,7 +121,7 @@ export default async function MembersPage() {
             Members and caregivers sharing responsibilities in <span className="font-semibold text-foreground">{family.name}</span>.
           </p>
         </div>
-        {isManager && <InviteMemberDialog familyId={activeFamilyId} />}
+        {isManager && <InviteMemberDialog familyId={activeFamilyId} familyName={family.name} />}
       </div>
 
       {/* Members Table */}
@@ -174,12 +174,12 @@ export default async function MembersPage() {
       </div>
 
       {/* Pending Invitations */}
-      {isManager && family.invitations.length > 0 && (
+      {isManager && family.invitations.filter((inv) => !inv.email.endsWith("@carecircle.internal")).length > 0 && (
         <div className="space-y-3 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
               <Mail className="w-4 h-4 text-amber-500" />
-              Pending Circle Invitations ({family.invitations.length})
+              Pending Email Invitations ({family.invitations.filter((inv) => !inv.email.endsWith("@carecircle.internal")).length})
             </h2>
           </div>
 
@@ -193,20 +193,22 @@ export default async function MembersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {family.invitations.map((inv) => (
-                  <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-xs font-medium text-foreground py-3">
-                      {inv.email}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {renderRoleBadge(inv.role)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground py-3 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                      Expires {format(new Date(inv.expires), "PPP")}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {family.invitations
+                  .filter((inv) => !inv.email.endsWith("@carecircle.internal"))
+                  .map((inv) => (
+                    <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="text-xs font-medium text-foreground py-3">
+                        {inv.email}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {renderRoleBadge(inv.role)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground py-3 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                        Expires {format(new Date(inv.expires), "PPP")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
