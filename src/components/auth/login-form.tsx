@@ -11,9 +11,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
+
+  const getErrorMessage = (error: string) => {
+    switch (error) {
+      case "Configuration":
+        return "Authentication service configuration issue. If testing locally, ensure you access the app at http://localhost:3000 to match the OAuth callback.";
+      case "OAuthCallbackError":
+        return "Could not complete sign-in with Google. Please try again or sign in with your email and password.";
+      case "OAuthAccountNotLinked":
+        return "An account with this email already exists using another sign-in method. Please sign in with your email and password.";
+      case "AccessDenied":
+        return "Sign-in access was denied. Please try again.";
+      default:
+        return "An error occurred during authentication. Please try again or sign in below.";
+    }
+  };
 
   const form = useForm<z.infer<typeof LoginSchema>>({
     resolver: zodResolver(LoginSchema),
@@ -48,6 +67,12 @@ export function LoginForm() {
           Enter your credentials to access your family dashboard
         </p>
       </div>
+      {errorParam && (
+        <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{getErrorMessage(errorParam)}</span>
+        </div>
+      )}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>

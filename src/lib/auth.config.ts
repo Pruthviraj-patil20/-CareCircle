@@ -4,6 +4,7 @@ export const authConfig = {
   providers: [], // we will add credentials provider in auth.ts because bcrypt is not edge compatible
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
