@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/dialog";
 
 const schema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
+  name: z.string().trim().min(1, "Family name is required").max(100, "Name too long"),
+  description: z.string().trim().max(500, "Description too long").optional(),
 });
 
 export function CreateFamilyDialog({
@@ -42,13 +42,19 @@ export function CreateFamilyDialog({
     startTransition(() => {
       createFamily(values.name, values.description)
         .then((data) => {
-          if (data.success) {
+          if (data?.error) {
+            toast.error(data.error);
+            return;
+          }
+          if (data?.success) {
             toast.success(data.success);
             setOpen(false);
             form.reset();
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+            window.location.href = "/dashboard";
           }
         })
-        .catch((e) => toast.error(e.message || "Failed to create family"));
+        .catch((e) => toast.error(e?.message || "Failed to create family"));
     });
   };
 
@@ -68,14 +74,24 @@ export function CreateFamilyDialog({
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="space-y-2">
             <Label htmlFor="name">Family Name</Label>
-            <Input id="name" disabled={isPending} {...form.register("name")} />
+            <Input
+              id="name"
+              placeholder="e.g. The Patil Family"
+              disabled={isPending}
+              {...form.register("name")}
+            />
             {form.formState.errors.name && (
               <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description (Optional)</Label>
-            <Input id="description" disabled={isPending} {...form.register("description")} />
+            <Input
+              id="description"
+              placeholder="e.g. Household coordination & appointments"
+              disabled={isPending}
+              {...form.register("description")}
+            />
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Creating..." : "Create Family"}

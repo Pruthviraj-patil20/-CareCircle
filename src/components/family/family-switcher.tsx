@@ -23,10 +23,27 @@ export function FamilySwitcher({ families, activeFamilyId }: FamilySwitcherProps
 
   const handleValueChange = (val: string | null) => {
     if (!val || val === "create_new") return; // Handled by dialog trigger
-    startTransition(() => {
-      setActiveFamily(val);
+    startTransition(async () => {
+      await setActiveFamily(val);
+      window.location.reload();
     });
   };
+
+  if (families.length === 0) {
+    return (
+      <div className="w-full">
+        <CreateFamilyDialog>
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition-all hover:bg-primary/10 hover:border-primary cursor-pointer"
+          >
+            <PlusCircle className="h-4 w-4" />
+            <span>Create Family</span>
+          </button>
+        </CreateFamilyDialog>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

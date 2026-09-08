@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { FamilyRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -20,7 +21,29 @@ import {
 
 export async function getActiveFamilyId() {
   const cookieStore = await cookies();
-  return cookieStore.get("activeFamilyId")?.value;
+  const cookieFamilyId = cookieStore.get("activeFamilyId")?.value;
+  if (cookieFamilyId) {
+    return cookieFamilyId;
+  }
+
+  // Fallback to user's first family membership if activeFamilyId cookie is not set
+  try {
+    const session = await auth();
+    if (session?.user?.id) {
+      const firstMembership = await prisma.familyMember.findFirst({
+        where: { userId: session.user.id },
+        select: { familyId: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (firstMembership?.familyId) {
+        return firstMembership.familyId;
+      }
+    }
+  } catch (err) {
+    console.error("[getActiveFamilyId fallback error]", err);
+  }
+
+  return undefined;
 }
 
 export async function setActiveFamily(familyId: string) {
@@ -38,46 +61,58 @@ export async function setActiveFamily(familyId: string) {
     secure: process.env.NODE_ENV === "production",
   });
   revalidatePath("/");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   
   return { success: true };
 }
 
 export async function createFamily(name: string, description?: string) {
-  const validated = CreateFamilySchema.safeParse({ name, description });
-  if (!validated.success) {
-    throw new SecurityError("INVALID_INPUT", validated.error.errors[0].message, 400);
-  }
+  try {
+    const validated = CreateFamilySchema.safeParse({ name, description: description || undefined });
+    if (!validated.success) {
+      return { error: validated.error.errors[0].message };
+    }
 
-  const ctx = await authorizeAction({
-    actionName: "CREATE_FAMILY",
-  });
+    const ctx = await authorizeAction({
+      actionName: "CREATE_FAMILY",
+    });
 
-  const family = await prisma.family.create({
-    data: {
-      name: validated.data.name,
-      description: validated.data.description,
-      members: {
-        create: {
-          userId: ctx.user.id,
-          role: "OWNER",
+    const family = await prisma.family.create({
+      data: {
+        name: validated.data.name,
+        description: validated.data.description || null,
+        members: {
+          create: {
+            userId: ctx.user.id,
+            role: "OWNER",
+          },
         },
       },
-    },
-  });
+    });
 
-  await logAuditEvent({
-    action: "FAMILY_CREATED",
-    entityType: "FAMILY",
-    familyId: family.id,
-    userId: ctx.user.id,
-    entityId: family.id,
-    details: { name: family.name },
-    ipAddress: ctx.ipAddress,
-    userAgent: ctx.userAgent,
-  });
+    await logAuditEvent({
+      action: "FAMILY_CREATED",
+      entityType: "FAMILY",
+      familyId: family.id,
+      userId: ctx.user.id,
+      entityId: family.id,
+      details: { name: family.name },
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
 
-  await setActiveFamily(family.id);
-  return { success: "Family created successfully!", familyId: family.id };
+    await setActiveFamily(family.id);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/", "layout");
+
+    return { success: "Family created successfully!", familyId: family.id };
+  } catch (error) {
+    console.error("[createFamily error]", error);
+    return { error: error instanceof Error ? error.message : "Failed to create family" };
+  }
 }
 
 export async function updateFamily(familyId: string, name: string, description?: string) {
