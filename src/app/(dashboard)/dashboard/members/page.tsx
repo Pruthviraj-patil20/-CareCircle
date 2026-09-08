@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { getActiveFamilyId } from "@/actions/family";
 import { canManageFamily } from "@/lib/permissions";
 import { InviteMemberDialog } from "@/components/family/invite-member-dialog";
+import { PendingInviteActions } from "@/components/family/pending-invite-actions";
 import {
   Table,
   TableBody,
@@ -190,6 +191,7 @@ export default async function MembersPage() {
                   <TableHead className="text-xs font-semibold">Invited Email</TableHead>
                   <TableHead className="text-xs font-semibold">Assigned Role</TableHead>
                   <TableHead className="text-xs font-semibold">Invitation Expiry</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -197,15 +199,24 @@ export default async function MembersPage() {
                   .filter((inv) => !inv.email.endsWith("@carecircle.internal"))
                   .map((inv) => (
                     <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-xs font-medium text-foreground py-3">
+                      <TableCell className="text-xs font-medium text-foreground py-3 font-mono">
                         {inv.email}
                       </TableCell>
                       <TableCell className="py-3">
                         {renderRoleBadge(inv.role)}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground py-3 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                        Expires {format(new Date(inv.expires), "PPP")}
+                      <TableCell className="text-xs text-muted-foreground py-3">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                          Expires {format(new Date(inv.expires), "PPP")}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2 text-right">
+                        <PendingInviteActions
+                          invitationId={inv.id}
+                          token={inv.token}
+                          email={inv.email}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

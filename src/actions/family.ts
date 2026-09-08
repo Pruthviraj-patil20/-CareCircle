@@ -18,6 +18,7 @@ import {
   ChangeRoleSchema,
   RemoveMemberSchema,
 } from "@/lib/validations";
+import { sendEmail } from "@/lib/resend";
 
 export async function getActiveFamilyId() {
   const cookieStore = await cookies();
@@ -206,9 +207,129 @@ export async function inviteMember(familyId: string, email: string, role: Family
     userAgent: ctx.userAgent,
   });
 
-  console.log(`[EMAIL_MOCK] Family invite link for ${validated.data.email}: http://localhost:3000/invite/${token}`);
+  const family = await prisma.family.findUnique({
+    where: { id: familyId },
+    select: { name: true },
+  });
 
-  return { success: "Invitation sent!" };
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const inviteUrl = `${baseUrl}/invite/${token}`;
+
+  const emailResult = await sendEmail({
+    to: validated.data.email,
+    subject: `You've been invited to join ${family?.name || "a family circle"} on CareCircle`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff;">
+        <div style="margin-bottom: 24px;">
+          <h1 style="color: #2563eb; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">CareCircle</h1>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Family care & task coordination</p>
+        </div>
+        
+        <h2 style="color: #111827; font-size: 20px; font-weight: 700; margin-bottom: 12px;">You're Invited!</h2>
+        <p style="color: #374151; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+          <strong>${ctx.user.name || ctx.user.email}</strong> has invited you to join the <strong>${family?.name || "family circle"}</strong> on CareCircle as a <strong>${validated.data.role}</strong>.
+        </p>
+
+        <div style="margin: 32px 0;">
+          <a href="${inviteUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+            Accept Invitation & Join Circle
+          </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 13px; line-height: 1.6; margin-top: 24px;">
+          Or copy and paste this link into your browser:<br/>
+          <a href="${inviteUrl}" style="color: #2563eb; word-break: break-all;">${inviteUrl}</a>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 28px 0;" />
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          This invitation link expires in 7 days. If you were not expecting this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+
+  console.log(`[Family Invite Link] For ${validated.data.email}: ${inviteUrl}`);
+
+  revalidatePath("/dashboard/members");
+
+  if (emailResult.success) {
+    return { success: `Invitation email sent to ${validated.data.email}!` };
+  } else {
+    return {
+      success: `Invitation created for ${validated.data.email}! Note: ${emailResult.error}`,
+    };
+  }
+}
+
+export async function resendInvitation(invitationId: string) {
+  const ctx = await authorizeAction({
+    actionName: "INVITE_MEMBER",
+  });
+
+  const invitation = await prisma.familyInvitation.findUnique({
+    where: { id: invitationId },
+    include: { family: { select: { name: true } } },
+  });
+
+  if (!invitation) {
+    throw new SecurityError("NOT_FOUND", "Invitation not found", 404);
+  }
+
+  // Refresh expiration
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(36)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  await prisma.familyInvitation.update({
+    where: { id: invitationId },
+    data: {
+      token,
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+    },
+  });
+
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const inviteUrl = `${baseUrl}/invite/${token}`;
+
+  const emailResult = await sendEmail({
+    to: invitation.email,
+    subject: `Reminder: You've been invited to join ${invitation.family.name} on CareCircle`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff;">
+        <div style="margin-bottom: 24px;">
+          <h1 style="color: #2563eb; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">CareCircle</h1>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Family care & task coordination</p>
+        </div>
+        
+        <h2 style="color: #111827; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Reminder: You're Invited!</h2>
+        <p style="color: #374151; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+          <strong>${ctx.user.name || ctx.user.email}</strong> has invited you to join the <strong>${invitation.family.name}</strong> family circle on CareCircle as a <strong>${invitation.role}</strong>.
+        </p>
+
+        <div style="margin: 32px 0;">
+          <a href="${inviteUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+            Accept Invitation & Join Circle
+          </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 13px; line-height: 1.6; margin-top: 24px;">
+          Or copy and paste this link into your browser:<br/>
+          <a href="${inviteUrl}" style="color: #2563eb; word-break: break-all;">${inviteUrl}</a>
+        </p>
+      </div>
+    `,
+  });
+
+  revalidatePath("/dashboard/members");
+
+  if (emailResult.success) {
+    return { success: `Invitation email re-sent to ${invitation.email}!` };
+  } else {
+    return {
+      success: `Invitation refreshed! Note: ${emailResult.error}`,
+    };
+  }
 }
 
 export async function getOrCreateShareInviteLink(familyId: string, role: FamilyRole = "MEMBER") {
