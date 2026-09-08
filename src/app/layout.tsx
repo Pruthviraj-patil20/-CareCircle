@@ -31,6 +31,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {process.env.NODE_ENV === "development" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if(typeof window!=='undefined'){window.addEventListener('error',function(e){var m=e.message||'';var f=e.filename||'';var s=(e.error&&e.error.stack)||'';if(m.includes("reading 'removeChild'")&&(f.includes('hotModuleReplacement')||s.includes('hotModuleReplacement')||!f)){e.preventDefault();e.stopImmediatePropagation();}},true);}`,
+            }}
+          />
+        )}
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <ThemeProvider
           attribute="class"
