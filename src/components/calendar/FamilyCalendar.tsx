@@ -41,8 +41,30 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
     }
   };
 
+  const previousViewTypeRef = useRef<string>("dayGridMonth");
+
   const handleDatesSet = (arg: DatesSetArg) => {
     fetchEvents(arg.start, arg.end);
+
+    const prevView = previousViewTypeRef.current;
+    previousViewTypeRef.current = arg.view.type;
+
+    // If switching from month to day/week view in the current month, ensure it anchors to today's date
+    if (prevView === "dayGridMonth" && (arg.view.type === "timeGridDay" || arg.view.type === "timeGridWeek")) {
+      const today = new Date();
+      const currentStart = arg.view.currentStart;
+      const isCurrentMonth =
+        currentStart.getFullYear() === today.getFullYear() &&
+        currentStart.getMonth() === today.getMonth();
+
+      if (isCurrentMonth) {
+        if (arg.view.type === "timeGridDay" && (arg.start.getDate() !== today.getDate() || arg.start.getMonth() !== today.getMonth())) {
+          calendarRef.current?.getApi().gotoDate(today);
+        } else if (arg.view.type === "timeGridWeek" && (today < arg.start || today >= arg.end)) {
+          calendarRef.current?.getApi().gotoDate(today);
+        }
+      }
+    }
   };
 
   const handleDateClick = (arg: DateClickArg) => {
@@ -86,10 +108,55 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
+            initialDate={new Date()}
+            now={new Date()}
+            navLinks={true}
             headerToolbar={{
               left: "prev,next today",
               center: "title",
               right: "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+            customButtons={{
+              dayGridMonth: {
+                text: "month",
+                click: () => {
+                  calendarRef.current?.getApi().changeView("dayGridMonth");
+                },
+              },
+              timeGridWeek: {
+                text: "week",
+                click: () => {
+                  const api = calendarRef.current?.getApi();
+                  if (!api) return;
+                  const today = new Date();
+                  const currentStart = api.view.currentStart;
+                  const isCurrentMonth =
+                    currentStart.getFullYear() === today.getFullYear() &&
+                    currentStart.getMonth() === today.getMonth();
+                  if (isCurrentMonth) {
+                    api.changeView("timeGridWeek", today);
+                  } else {
+                    api.changeView("timeGridWeek");
+                  }
+                },
+              },
+              timeGridDay: {
+                text: "day",
+                click: () => {
+                  const api = calendarRef.current?.getApi();
+                  if (!api) return;
+                  const today = new Date();
+                  const currentStart = api.view.currentStart;
+                  const isCurrentMonth =
+                    currentStart.getFullYear() === today.getFullYear() &&
+                    currentStart.getMonth() === today.getMonth();
+                  if (isCurrentMonth) {
+                    api.changeView("timeGridDay", today);
+                  } else {
+                    api.changeView("timeGridDay");
+                  }
+                },
+              },
             }}
             events={formattedEvents}
             datesSet={handleDatesSet}
