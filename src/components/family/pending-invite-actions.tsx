@@ -34,10 +34,8 @@ export function PendingInviteActions({
   const handleResend = () => {
     startTransition(() => {
       resendInvitation(invitationId)
-        .then(async (res) => {
+        .then((res) => {
           if (res.success) {
-            const origin = typeof window !== "undefined" ? window.location.origin : "";
-            const currentToken = res.token || token;
             toast.success(res.success);
           }
         })

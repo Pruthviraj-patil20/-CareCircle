@@ -71,11 +71,22 @@ export function InviteMemberDialog({
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (newOpen) {
+      setIsLoadingToken(true);
+    }
+  };
+
+  const handleRoleChange = (newRole: FamilyRole) => {
+    setRole(newRole);
+    setIsLoadingToken(true);
+  };
+
   // Fetch or generate shareable link whenever dialog is opened or role is changed
   useEffect(() => {
     if (!open) return;
     let isSubscribed = true;
-    setIsLoadingToken(true);
 
     getOrCreateShareInviteLink(familyId, role)
       .then((res) => {
@@ -198,7 +209,7 @@ export function InviteMemberDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button />}>
         <MailPlus className="w-4 h-4 mr-2" />
         Invite Member
@@ -225,7 +236,7 @@ export function InviteMemberDialog({
             </div>
             <Select
               value={role}
-              onValueChange={(v) => setRole(v as FamilyRole)}
+              onValueChange={(v) => handleRoleChange(v as FamilyRole)}
               disabled={isPending || isLoadingToken}
             >
               <SelectTrigger className="w-full h-9 bg-background">
