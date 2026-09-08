@@ -125,7 +125,10 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   html {
-    @apply font-sans scroll-smooth;
+    @apply font-sans;
+  }
+  html[data-scroll-behavior="smooth"] {
+    scroll-behavior: smooth;
   }
 }
 
