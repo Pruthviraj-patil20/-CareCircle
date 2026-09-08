@@ -45,10 +45,13 @@ export function FamilySwitcher({ families, activeFamilyId }: FamilySwitcherProps
             </SelectItem>
           ))}
           <CreateFamilyDialog>
-            <div className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground">
+            <button
+              type="button"
+              className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left"
+            >
               <PlusCircle className="absolute left-2 flex h-4 w-4 items-center justify-center" />
               <span>Create Family</span>
-            </div>
+            </button>
           </CreateFamilyDialog>
         </SelectContent>
       </Select>

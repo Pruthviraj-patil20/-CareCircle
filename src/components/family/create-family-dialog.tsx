@@ -23,7 +23,13 @@ const schema = z.object({
   description: z.string().optional(),
 });
 
-export function CreateFamilyDialog({ children }: { children: React.ReactNode }) {
+export function CreateFamilyDialog({
+  children,
+  nativeButton,
+}: {
+  children: React.ReactNode;
+  nativeButton?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -48,7 +54,10 @@ export function CreateFamilyDialog({ children }: { children: React.ReactNode }) 
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={children as React.ReactElement} />
+      <DialogTrigger
+        nativeButton={nativeButton}
+        render={children as React.ReactElement}
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create a New Family</DialogTitle>

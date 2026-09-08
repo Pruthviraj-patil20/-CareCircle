@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
@@ -44,11 +45,20 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  const isNonButton =
+    React.isValidElement(props.render) &&
+    (typeof props.render.type === "string"
+      ? props.render.type !== "button"
+      : typeof (props.render.props as { href?: unknown })?.href !== "undefined");
+  const resolvedNativeButton = nativeButton ?? (isNonButton ? false : undefined);
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      nativeButton={resolvedNativeButton}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
