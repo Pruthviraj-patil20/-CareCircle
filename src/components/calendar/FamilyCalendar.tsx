@@ -234,6 +234,36 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
         .fc-day-today {
           background-color: var(--primary) / 5% !important;
         }
+        .fc .fc-daygrid-day.fc-day-today {
+          border: 2px solid #ef4444 !important;
+          box-shadow: inset 0 0 0 1px #ef4444 !important;
+        }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+          border: 2px solid #ef4444 !important;
+          border-radius: 9999px;
+          min-width: 1.75rem;
+          height: 1.75rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700 !important;
+          color: #ef4444 !important;
+          margin: 2px 4px;
+        }
+        .fc .fc-col-header-cell.fc-day-today {
+          border-bottom: 2px solid #ef4444 !important;
+        }
+        .fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+          border: 2px solid #ef4444 !important;
+          border-radius: 0.375rem;
+          padding: 2px 6px;
+          color: #ef4444 !important;
+        }
+        .fc .fc-timegrid-col.fc-day-today {
+          border-left: 2px solid #ef4444 !important;
+          border-right: 2px solid #ef4444 !important;
+          box-shadow: inset 0 0 0 1px #ef4444 !important;
+        }
       `}</style>
     </div>
   );
