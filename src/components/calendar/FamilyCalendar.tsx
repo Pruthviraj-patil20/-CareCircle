@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import FullCalendar, {
-  type CalendarRef,
-  type DatesSetInfo,
-  type DateClickInfo,
-  type EventClickInfo,
-} from "@fullcalendar/react";
+import FullCalendar from "@fullcalendar/react";
+import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -33,7 +30,7 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventWithParticipants | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const calendarRef = useRef<CalendarRef | null>(null);
+  const calendarRef = useRef<FullCalendar | null>(null);
 
   const fetchEvents = async (start: Date, end: Date) => {
     try {
@@ -44,17 +41,17 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
     }
   };
 
-  const handleDatesSet = (arg: DatesSetInfo) => {
+  const handleDatesSet = (arg: DatesSetArg) => {
     fetchEvents(arg.start, arg.end);
   };
 
-  const handleDateClick = (arg: DateClickInfo) => {
+  const handleDateClick = (arg: DateClickArg) => {
     setSelectedEvent(null);
     setSelectedDate(arg.date);
     setDialogOpen(true);
   };
 
-  const handleEventClick = (arg: EventClickInfo) => {
+  const handleEventClick = (arg: EventClickArg) => {
     const eventId = arg.event.id;
     const event = events.find((e) => e.id === eventId);
     if (event) {
@@ -87,7 +84,6 @@ export function FamilyCalendar({ members }: { members: Member[] }) {
         <div className="min-w-[700px]">
           <FullCalendar
             ref={calendarRef}
-            // @ts-expect-error FullCalendar plugin versions compatibility
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
