@@ -25,16 +25,19 @@ export function EventDialog({ open, onOpenChange, members, event, selectedDate, 
             {event ? "Make changes to your event." : "Add a new event to the family calendar."}
           </DialogDescription>
         </DialogHeader>
-        <EventForm
-          members={members}
-          event={event}
-          selectedDate={selectedDate}
-          onSuccess={() => {
-            onSuccess();
-            onOpenChange(false);
-          }}
-          onCancel={() => onOpenChange(false)}
-        />
+        {open && (
+          <EventForm
+            key={event?.id || (selectedDate ? selectedDate.toISOString() : "new")}
+            members={members}
+            event={event}
+            selectedDate={selectedDate}
+            onSuccess={() => {
+              onSuccess();
+              onOpenChange(false);
+            }}
+            onCancel={() => onOpenChange(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

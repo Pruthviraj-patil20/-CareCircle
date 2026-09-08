@@ -70,6 +70,7 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
   });
 
   const isAllDay = useWatch({ control: form.control, name: "isAllDay" });
+  const type = useWatch({ control: form.control, name: "type" });
 
   const onSubmit = (values: z.infer<typeof CreateEventSchema>) => {
     startTransition(async () => {
@@ -135,8 +136,8 @@ export function EventForm({ members, event, selectedDate, onSuccess, onCancel }:
           <Label htmlFor="type">Event Type</Label>
           <Select 
             disabled={isPending} 
-            defaultValue={form.getValues("type")} 
-            onValueChange={(v) => form.setValue("type", v as z.infer<typeof CreateEventSchema>["type"])}
+            value={type || "OTHER"} 
+            onValueChange={(v) => form.setValue("type", v as z.infer<typeof CreateEventSchema>["type"], { shouldValidate: true })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
